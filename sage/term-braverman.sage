@@ -10,23 +10,15 @@ import sys
 from itertools import groupby
 from functools import partial
 
+import copy
+
 from sage.all import *
+
+import misc_matrix as MX
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # functions #
 
-def mk_symbol_vector(dim,symbol):
-    return matrix(1,dim, lambda i,j: var(
-        symbol+"_"+str(i),
-        latex_name=symbol+"_{"+str(i)+"}"))
-
-def mk_symbol_matrix(rdim,cdim,symbol):
-    return matrix(rdim,cdim, lambda i,j: var(
-        symbol+"_"+str(i)+"_"+str(j),
-        latex_name=symbol+"_{"+str(i)+","+str(j)+"}"))
-
-def matrix_to_list(m):
-    return map(lambda r:r.list(), m.rows())
 
 def formula_to_operands(formula):
     fe=formula.expand()
@@ -89,88 +81,68 @@ def eigenvalue_superset(evgroups):
         evsuperset.append(handle_group(g))
     return evsuperset
 
-def to_jordan_blocks(jordan_matrix):
-    (vdivs, hdivs) = jordan_matrix.subdivisions()
-    block_count = len(vdivs)+1
-    jbs=[]
-    for d in range(0,block_count):
-        jbs.append(jordan_matrix.subdivision(d,d))
-    return jbs
-
-def find_jordan_block_dim_from_eigenvalue(jbs, ev_tuple):
-    dim=0
-    ev=ev_tuple[0]
-    for b in jbs:
-        d = b.dimensions()[0]
-        if ev == abs(b[0,0]) and d > dim:
-            dim = d
-    return dim
-
-def to_abstract_power_factors(jordan_matrix):
-    def handle_ev(abs_ds_tuple, max_block_size):
-        (absval,dirs) = abs_ds_tuple
-        fs=[]
-        for i in range(0,max_block_size):
-            fs.extend(map(lambda d: (absval,d,i), dirs))
-        return fs
-
-    evs = eigenvalue_superset(
-        group_eigenvalues_by_abs(
-        jordan_matrix.eigenvalues()))
-    jbs = to_jordan_blocks(jordan_matrix)
-    abstract_factors = []
-    for ev in evs:
-        size = find_jordan_block_dim_from_eigenvalue(jbs,ev)
-        abstract_factors.extend(handle_ev(ev,size))
-    return abstract_factors
 
 
-def replace_symbol_matrix_entries(sym_mx,val_mx,abstract_symbol_matrix):
-    # Wrapping a Symbolic Ring (SR) around potentially Algebric Numbers (QQbar)
-    # is posssible, with loss of exactness if a transformation from SR back to
-    # QQbar is needed. See:
-    # https://groups.google.com/forum/#!topic/sage-support/Kfzd07Y1Q_s
-    # Ignoring this problem we could write the following:
-    #
-    #   d=dict(zip(sym_mx.list(),map(SR,val_mx.list())))
-    #   return expr.subs(d)
-    #
-    # But we want the substitutions to stay in the algebric numbers. Hence
-    # we use a more complicated way to substitute.
-    def replace(d,entry):
-        new_entry = d.get(repr(entry))
-        if new_entry is None:
-            return entry
-        else:
-            return new_entry
+# def find_jordan_block_dim_from_eigenvalue(jbs, ev_tuple):
+#     dim=0
+#     ev=ev_tuple[0]
+#     for b in jbs:
+#         d = b.dimensions()[0]
+#         if ev == abs(b[0,0]) and d > dim:
+#             dim = d
+#     return dim
+#
+# def to_abstract_power_factors(jordan_matrix):
+#     def handle_ev(abs_ds_tuple, max_block_size):
+#         (absval,dirs) = abs_ds_tuple
+#         fs=[]
+#         for i in range(0,max_block_size):
+#             fs.extend(map(lambda d: (absval,d,i), dirs))
+#         return fs
+#
+#     evs = eigenvalue_superset(
+#         group_eigenvalues_by_abs(
+#         jordan_matrix.eigenvalues()))
+#     jbs = MX.to_jordan_blocks(jordan_matrix)
+#     abstract_factors = []
+#     for ev in evs:
+#         size = find_jordan_block_dim_from_eigenvalue(jbs,ev)
+#         abstract_factors.extend(handle_ev(ev,size))
+#     return abstract_factors
 
-    def walk_lists(d,lst):
-        rec = partial(walk_lists,d)
-        if isinstance(lst,list):    # if it is a list
-            return map(rec,lst)
-        elif isinstance(lst,tuple):  # if it is a tuple
-            return (lst[0],map(rec,lst[1]))
-        elif isinstance(lst,Expression): # an element
-            return replace(d,lst)
-        else:
-            return lst
-    d=dict(zip(map(repr,sym_mx.list()),map(SR,val_mx.list())))
-    return walk_lists(d,abstract_symbol_matrix)
+
 
 def group_entry_summands_by_eigenvalue(entry):
-    def grp_key(summand):
-        return abs(summand[1][0])
-    def norm_ev(summand):
-        summand[1][0]=to_number_direction(summand[1][0])
-
-    def modify_group_by_eigenvalue(group):
-        (k,vs)=group
-        vs2=map(lambda v: vto_number_direction(v[0]), vs)
     smul=sage.symbolic.operators.mul_vararg
     sadd=sage.symbolic.operators.add_vararg
-    summand_groups = sort_and_group_by_function(entry[1],grp_key)
+    def grp_key(summand):
+        return (abs(summand[1][0][0]),summand[1][0][1])
+        # (eigenvalue,power) -> (abs(eigenvalue), power)
+    def norm_summand(summand):
+        copysummand=(summand[0],summand[1][:])
+        val = copysummand[1][0][0]
+        pow = copysummand[1][0][1]
+        if val != 0:
+            copysummand[1][0]=(to_number_direction(val),pow)
+        return copysummand
+    def norm_summands(group):
+        (k,vs)=group
+        vs2=map(norm_summand, vs)
+        return (k,vs2)
+    def add_with_same_direction_subgroup(subgroup):
+        (direction,sg)=subgroup
+        sg2=map(lambda x:(x[0],x[1][1:]), sg)
+        return (smul,[direction,(sadd,sg2)])
+    def add_with_same_direction(group):
+        (k,gs)=group
+        gs2=sort_and_group_by_function(gs,lambda x: x[1][0])
+        gs3=map(add_with_same_direction_subgroup,gs2)
+        return (smul,[k,gs3])
 
-    return (entry[0],summand_groups)
+    summand_groups = sort_and_group_by_function(entry[1],grp_key)
+    summand_groups_direction = map(norm_summands,summand_groups)
+    transformed_summands = map(add_with_same_direction,summand_groups_direction)
+    return (entry[0],transformed_summands)
 
 # if len(sys.argv) != 2:
 #     print "Usage: %s <n>"%sys.argv[0]
@@ -186,7 +158,7 @@ mB_s = matrix(ZZ,[[4,1]])
 mB_w = matrix(ZZ,[[0,0]])
 mA = matrix(ZZ,[[-2,4],[4,0]])
 (row_dim,col_dim)=mA.dimensions()
-vZ = mk_symbol_vector(col_dim,"x").transpose()
+vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
 
 (mD,mP) = mA.jordan_form(QQbar,transformation=true)
 mPi = mP.inverse()
@@ -201,14 +173,24 @@ print "eigenvalues sorted and grouped by absolute value ", evs_grouped
 print "eigenvalue index set compact", evs_indexset
 print "abstract factors of jordan matrix", abstract_fs
 
-B=mk_symbol_vector(2,"b")
-P=mk_symbol_matrix(2,2,"p")
-A=mk_symbol_matrix(2,2,"a")
-Q=mk_symbol_matrix(2,2,"q")
+B=MX.mk_symbol_vector(2,"b")
+P=MX.mk_symbol_matrix(2,2,"p")
+D=MX.mk_symbol_matrix(2,2,"a")
+Q=MX.mk_symbol_matrix(2,2,"q")
 
-BPAQ=(B*P*A*Q).expand()           # .expand() is the same as .apply_map(expand)
-# splt into operators and operands
-oBPAQ=map(lambda r: map (lambda c: formula_to_operands(c),r), matrix_to_list(BPAQ))
-# insert vales for A matrix
-oBPaQ=replace_symbol_matrix_entries(A,mD,oBPAQ)
-# combine parts by same absolute eigenvalues and direction
+BPDQ=(B*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
+# a matrix entry now has the form (apdq + apdq + apdq + ...), where each
+# a,p,d,q corresponds to one entry of the original matrices.
+#
+# split into operators and operands
+oBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(BPAQ))
+# Now we have a list representation of our matrix where each entry is split
+# into a tuple (operator,list of arguments).
+# Here we want to replace the symbolic values of matrix A by some abstract
+# representation of the Jordan matrix D to the power of some natural number
+oBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(A),MX.abstract_jordan_matrix_power(mD),oBPAQ)
+# combine parts by same absolute eigenvalues and direction for every entry.
+# an entry.
+nBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,oBPdQ)
+# Entries now have the form (abs(a_0)(dir(a_0)pdq+dir(a_1)pdq+...)
+# + abs(a_2)(dir(a_2)pdq+dir(a_3)pdq+...) + ...).
