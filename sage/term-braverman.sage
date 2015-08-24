@@ -32,19 +32,31 @@ def formula_to_operands(formula):
     fe=formula.expand()
     return (fe.operator(),map(lambda m:(m.operator(),m.operands()), fe.operands()))
 
-def number_direction(num):
+def to_number_direction(num):
     return (num/abs(num))
 
 
-def sort_and_group_values_by_abs(vals):
+def sort_and_group_by_function (some_list, key_func):
     groups = []
     uniquekeys = []
-    data = sorted(vals, key=abs)
-    for k, g in groupby(data, abs):
-        # Store group iterator as a list
-        groups.append(map(number_direction,list(g)))
+    sorted_list = sorted(some_list, key=key_func)
+    for k,v in groupby(sorted_list, key_func):
+        groups.append(list(v))
         uniquekeys.append(k)
     return zip(uniquekeys,groups)
+
+def group_eigenvalues_by_abs(vals):
+    groups = sort_and_group_by_function(vals, abs)
+
+    return map(lambda grp:(grp[0],map(to_number_direction,grp[1])), groups)
+    # groups = []
+    # uniquekeys = []
+    # data = sorted(vals, key=abs)
+    # for k, g in groupby(data, abs):
+    #     # Store group iterator as a list
+    #     groups.append(map(number_direction,list(g)))
+    #     uniquekeys.append(k)
+    # return zip(uniquekeys,groups)
 
 
 def eigenvalue_superset_flat(evgroups):
@@ -103,7 +115,7 @@ def to_abstract_power_factors(jordan_matrix):
         return fs
 
     evs = eigenvalue_superset(
-        sort_and_group_values_by_abs(
+        group_eigenvalues_by_abs(
         jordan_matrix.eigenvalues()))
     jbs = to_jordan_blocks(jordan_matrix)
     abstract_factors = []
@@ -145,7 +157,20 @@ def replace_symbol_matrix_entries(sym_mx,val_mx,abstract_symbol_matrix):
     d=dict(zip(map(repr,sym_mx.list()),map(SR,val_mx.list())))
     return walk_lists(d,abstract_symbol_matrix)
 
+def group_entry_summands_by_eigenvalue(entry):
+    def grp_key(summand):
+        return abs(summand[1][0])
+    def norm_ev(summand):
+        summand[1][0]=to_number_direction(summand[1][0])
 
+    def modify_group_by_eigenvalue(group):
+        (k,vs)=group
+        vs2=map(lambda v: vto_number_direction(v[0]), vs)
+    smul=sage.symbolic.operators.mul_vararg
+    sadd=sage.symbolic.operators.add_vararg
+    summand_groups = sort_and_group_by_function(entry[1],grp_key)
+
+    return (entry[0],summand_groups)
 
 # if len(sys.argv) != 2:
 #     print "Usage: %s <n>"%sys.argv[0]
@@ -166,7 +191,7 @@ vZ = mk_symbol_vector(col_dim,"x").transpose()
 (mD,mP) = mA.jordan_form(QQbar,transformation=true)
 mPi = mP.inverse()
 evs=mD.eigenvalues()
-evs_grouped=sort_and_group_values_by_abs(evs)
+evs_grouped=group_eigenvalues_by_abs(evs)
 evs_indexset=eigenvalue_superset(evs_grouped)
 abstract_fs=to_abstract_power_factors(mD)
 
