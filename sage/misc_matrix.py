@@ -1,6 +1,7 @@
 
 import itertools
 import functools
+import inspect
 
 from sage.all import *
 
@@ -91,7 +92,7 @@ def replace_symbols_in_lmatrix(lmx_sym,lmx_val,lmatrix):
         rec = functools.partial(walk_lists,d)
         if isinstance(lst,list):    # if it is a list: matrix structure or parameters
             return map(rec,lst)
-        elif isinstance(lst,tuple):  # if it is a tuple: function and pararmeter
+        elif isinstance(lst,tuple) and inspect.isfunction(lst[0]):  # if it is a tuple: function and pararmeter
             return (lst[0],map(rec,lst[1]))
         elif isinstance(lst,Expression): # an element: variable
             return replace(d,lst)
