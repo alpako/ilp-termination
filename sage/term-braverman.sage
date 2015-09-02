@@ -222,6 +222,7 @@ def big_and(*conds):
     c = True
     for cond in conds:
         c = c and cond
+        print cond, bool(cond), c
     return c
 
 
@@ -229,21 +230,24 @@ def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vec
     # returns a index_z depending on abs_cond_k
     def condition_for_index(curr_idx,idx):
         if curr_idx > idx:
-            coeff=matrix(map(SR,abs_cond_k[idx][QQbar(1)]))
+            #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
+            coeff=matrix(map(CC,abs_cond_k[curr_idx][QQbar(1)]))
             lhs = (coeff*var_vector)[0,0]
-            # print "coeff==:",lhs, lhs == 0
+            #print "coeff==:",coeff, "::", curr_idx, "::", idx, "::", lhs, "::", lhs == 0
             return lhs == 0
         elif curr_idx == idx:
-            coeff=matrix(map(SR,abs_cond_k[idx][QQbar(1)]))[0,0]
+            #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
+            coeff=matrix(map(CC,abs_cond_k[curr_idx][QQbar(1)])) #[0,0]
             lhs = (coeff*var_vector)[0,0]
-            # print "coeff>:",lhs , lhs == 0
+            #print "coeff>:",coeff, "::", curr_idx, "::", idx, "::", lhs , "::", lhs > 0
             return lhs > 0
         else:
             return True
     def conditions_for_index(rev_idxs, idx):
+        print "index:", idx
         c = map(lambda cidx:condition_for_index(cidx,idx),rev_idxs)
-        print "c",idx,":", c , "==>" , big_and(*c)
-        return big_and(*c)
+        #print "c",idx,":", c , "==>" , big_and(*c)
+        return c #big_and(*c)
     def conditions_for_indices(rev_idxs):
         cs = zip(rev_idxs,
             map(lambda idx:conditions_for_index(rev_idxs,idx),rev_idxs)
@@ -252,18 +256,23 @@ def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vec
     def subsdict(var_vector,num_vector):
         return dict(zip(var_vector.list(),num_vector.list()))
     def index_z(idx_cond_tuples,var_vector,num_vector):
+            def handle_expression(d,exp):
+                if isinstance(exp,bool):
+                    return exp
+                else:
+                    return exp.substitute(d)
             d=subsdict(var_vector,num_vector)
-            for (i,c) in idx_cond_tuples:
-                num_c=c.substitute(d)
-                print num_c
-                if num_c:
+            for (i,cs) in idx_cond_tuples:
+                num_cs=map(lambda c: handle_expression(d,c),cs)
+                print num_cs, all(num_cs)
+                if all(num_cs):
                     return i
             return None
     rev_idxs=list(reversed(sorted_index_list))
     idx_cond_tuples = conditions_for_indices(rev_idxs)
     print "rev_idxs",list(rev_idxs)
     print "idx_cond_tuples",idx_cond_tuples
-    partial_index_z = partial(index_z,idx_cond_tuples,var_vector)
+    partial_index_z = functools.partial(index_z,idx_cond_tuples,var_vector)
     return (partial_index_z,idx_cond_tuples)
 
 # if len(sys.argv) != 2:
