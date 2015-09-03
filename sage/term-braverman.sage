@@ -212,7 +212,32 @@ def reduce_abstract_cond_k_to_S_plus(cond_k):
         cond_k_sp[ev]={QQbar(1) : positive_dir_factor}
     return cond_k_sp
 
+def positive_eigenspace_of(some_matrix):
+    ess=some_matrix.eigenspaces_right()
+    V=VectorSpace(QQbar,some_matrix.dimensions()[0])
+    #pess=[]
+    bases=[]
+    for es in ess:
+        if es[0] > 0:
+            #pess.append(es)
+            bases.extend(es[1].basis())
+    pes=V.vector_space_span_of_basis(bases)
+    return pes
+
+# def positive_generalized_eigenspace_of(some_square_matrix):
+#     jm = some_square_matrix.jordan_form(QQbar)
+#     dim = some_square_matrix.dimensions()[0]
+#     V = VectorSpace(QQbar,dim);
+#     pvecs=[]
+#     for i in range(dim):
+#         if jm[i,i] > 0:
+#             pvecs.append(jm.row(i))
+#     pges=V.vector_space_span_of_basis(pvecs)
+#     return pges
+
 def big_and(*conds):
+    # unused not working as intended.
+    #
     # big_and is needed since all forces boolean evaluation
     # def all(iterable):
     # for element in iterable:
@@ -256,6 +281,7 @@ def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vec
     def subsdict(var_vector,num_vector):
         return dict(zip(var_vector.list(),num_vector.list()))
     def index_z(idx_cond_tuples,var_vector,num_vector):
+            # partial index_z function needs to be associated to a k
             def handle_expression(d,exp):
                 if isinstance(exp,bool):
                     return exp
@@ -274,6 +300,14 @@ def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vec
     print "idx_cond_tuples",idx_cond_tuples
     partial_index_z = functools.partial(index_z,idx_cond_tuples,var_vector)
     return (partial_index_z,idx_cond_tuples)
+
+def mk_index_z(abs_conds, sorted_index_list, var_vector):
+    index_z_func_list=map(lambda cond_k:
+        mk_abstract_cond_k_constraints_S_plus(cond_k,sorted_index_list,var_vector)[0], abs_conds)
+    def index_z_k(index_z_list,num_vector_z, row_k):
+        return index_z_list[k](num_vector_z)
+    return functools.partial(index_z_k,index_z_func_list)
+
 
 # if len(sys.argv) != 2:
 #     print "Usage: %s <n>"%sys.argv[0]
@@ -335,10 +369,13 @@ nbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),
 # we transform it to a more concrete representation.
 
 # build eigenvalue index set Ind
-ind=abs_ev_index_set_from_abstract_lmatrix(nbpdq)
-cond=mk_abstract_conds(nbpdq)
+ind=sorted(list(abs_ev_index_set_from_abstract_lmatrix(nbpdq)))
+abs_conds=mk_abstract_conds(nbpdq)
 zvec=MX.mk_symbol_matrix(2,1,"z")
-cond_0=mk_abstract_cond_k_constraints_S_plus(cond[0],sorted(list(ind)),zvec)
+#cond_0=mk_abstract_cond_k_constraints_S_plus(abs_conds[0],ind,zvec)
+index_z_k=mk_index_z(abs_conds,ind,zvec)
+pos_eigenspace=positive_eigenspace_of(mA)
+
 
 # testing the index function
 # a= cond[0][cond[0].keys()[2]][QQbar(1)]
