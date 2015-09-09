@@ -15,6 +15,10 @@ import copy
 from sage.all import *
 
 import misc_matrix as MX
+import solve_extension as SE
+
+#CCp=ComplexField(63)
+
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # functions #
@@ -250,29 +254,44 @@ def big_and(*conds):
         print cond, bool(cond), c
     return c
 
+#########################################################
+# Lemma 6
 
-def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vector):
+def mk_abstract_cond_k_to_constraints(abs_cond_k, sorted_index_list, var_vector,only_positive_space):
     # returns a index_z depending on abs_cond_k
     def condition_for_index(curr_idx,idx):
         if curr_idx > idx:
-            #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
-            coeff=matrix(map(CC,abs_cond_k[curr_idx][QQbar(1)]))
-            lhs = (coeff*var_vector)[0,0]
-            #print "coeff==:",coeff, "::", curr_idx, "::", idx, "::", lhs, "::", lhs == 0
-            return lhs == 0
+            if only_positive_space:
+                #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
+                coeff=matrix(map(lambda x:QQbar(x).radical_expression(),abs_cond_k[curr_idx][QQbar(1)]))
+                lhs = (coeff*var_vector)[0,0]
+                #print "coeff==:",coeff, "::", curr_idx, "::", idx, "::", lhs, "::", lhs == 0
+                return [lhs == 0]
+            else:
+                coeffs=map(lambda vec:matrix(map(lambda x:QQbar(x).radical_expression(),vec)),
+                    abs_cond_k[curr_idx].values())
+                lhss = map(lambda coeff:(coeff*var_vector)[0,0],coeffs)
+                return map(lambda lhs:lhs == 0,lhss)
         elif curr_idx == idx:
-            #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
-            coeff=matrix(map(CC,abs_cond_k[curr_idx][QQbar(1)])) #[0,0]
-            lhs = (coeff*var_vector)[0,0]
-            #print "coeff>:",coeff, "::", curr_idx, "::", idx, "::", lhs , "::", lhs > 0
-            return lhs > 0
+            if only_positive_space:
+                #print "thecoeff:", abs_cond_k[curr_idx][QQbar(1)]
+                coeff=matrix(map(lambda x:QQbar(x).radical_expression(),abs_cond_k[curr_idx][QQbar(1)])) #[0,0]
+                lhs = (coeff*var_vector)[0,0]
+                #print "coeff>:",coeff, "::", curr_idx, "::", idx, "::", lhs , "::", lhs > 0
+                return [lhs > 0]
+            else:
+                return[]
         else:
-            return True
+            if only_positive_space:
+                #return [True]
+                return []
+            else:
+                return []
     def conditions_for_index(rev_idxs, idx):
-        print "index:", idx
+        #print "index:", idx
         c = map(lambda cidx:condition_for_index(cidx,idx),rev_idxs)
         #print "c",idx,":", c , "==>" , big_and(*c)
-        return c #big_and(*c)
+        return list(itertools.chain(*c)) #big_and(*c)
     def conditions_for_indices(rev_idxs):
         cs = zip(rev_idxs,
             map(lambda idx:conditions_for_index(rev_idxs,idx),rev_idxs)
@@ -296,19 +315,198 @@ def mk_abstract_cond_k_constraints_S_plus(abs_cond_k, sorted_index_list, var_vec
             return None
     rev_idxs=list(reversed(sorted_index_list))
     idx_cond_tuples = conditions_for_indices(rev_idxs)
-    print "rev_idxs",list(rev_idxs)
-    print "idx_cond_tuples",idx_cond_tuples
+    #print "rev_idxs",list(rev_idxs)
+    #print "idx_cond_tuples",idx_cond_tuples
     partial_index_z = functools.partial(index_z,idx_cond_tuples,var_vector)
     return (partial_index_z,idx_cond_tuples)
 
+def mk_abstract_conds_to_constraints(abs_conds, sorted_index_list, var_vector,only_positive_space):
+    func_cond_tuple_list=map(lambda cond_k:
+            mk_abstract_cond_k_to_constraints(cond_k,sorted_index_list,var_vector,only_positive_space), abs_conds)
+    return func_cond_tuple_list
+
 def mk_index_z(abs_conds, sorted_index_list, var_vector):
-    index_z_func_list=map(lambda cond_k:
-        mk_abstract_cond_k_constraints_S_plus(cond_k,sorted_index_list,var_vector)[0], abs_conds)
+    func_cond_tuple_list=mk_abstract_conds_to_constraints(abs_conds,sorted_index_list,var_vector,True) # index_z uses only the positive eigenspace.
+    index_z_func_list=map(lambda tup:tup[0],func_cond_tuple_list)
+    index_cond_tuples=map(lambda tup:tup[1],func_cond_tuple_list)
     def index_z_k(index_z_list,num_vector_z, row_k):
         return index_z_list[k](num_vector_z)
-    return functools.partial(index_z_k,index_z_func_list)
+    return (functools.partial(index_z_k,index_z_func_list),index_cond_tuples)
+
+def mk_in_space_conditions(space,var_vector):
+    basis_matrix = space.matrix().transpose().apply_map(lambda x:QQbar(x).radical_expression())
+    vec_len,coeff_count = basis_matrix.dimensions()
+    coeffs = MX.mk_symbol_vector(coeff_count,'c');
+    #print "mk_in_space_condition:", coeff_count, coeffs, vec_len
+    #print basis_matrix
+    #for i in range(coeff_count):
+    #    assume(coeffs[0][i],'rational')
+
+    lhs1 = MX.linear_combination_of(coeffs,basis_matrix).list()
+    lhs2 = var_vector.list()
+    conds=map(lambda tup: tup[0] - tup[1] == 0,zip(lhs1,lhs2))
+    return (conds,coeffs.list(),var_vector.list())
+
+#########################################################
+# Lemma 7
+
+def max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds):
+    cond_k = cond_tuples[k]
+    rest_conds = map(lambda cts:map(lambda ct: ct[1], cts),
+        cond_tuples[0:k] + cond_tuples[k+1:])
+    rest_conditions_combinations = map(lambda css: list(itertools.chain(*css)),
+        SE.any_combination_of(rest_conds))
+    vars=in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
+    for idx,conds in cond_k:
+        # print idx, conds, in_pos_eigenspace_conds[1]
+        cond_disjunct=map(lambda cs:cs+in_pos_eigenspace_conds[0]+conds,rest_conditions_combinations)
+        solutions=SE.solve_ext(cond_disjunct,*vars)
+        # print "solutions:", solutions
+        if len(solutions) > 0:
+            return (idx,solutions)
+    return (None,[])
+
+def max_indices_cond(cond_tuples,var_vec,in_pos_eigenspace_conds):
+    result=[]
+    for k in range(len(cond_tuples)):
+        r=max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds)
+        result.append((r[0],r[1][0]))        # only take the first solutions if there are more
+        #if r[0] == None:
+        #    return []
+    return result
+
+#########################################################
+# Lemma 8
+
+def complex_space_conditions(abs_conds,sorted_index_list,var_vec,index_cond_c_tuples,max_indices_cond_tuples,in_space_conds):
+    index_cond_cn_tuples = mk_abstract_conds_to_constraints(abs_conds,sorted_index_list,var_vec,False)
+    # print index_cond_cn_tuples
+    vars=in_space_conds[1]+in_space_conds[2]
+    sc=in_space_conds[0]
+    c_cond_dicts= map(lambda tup:dict(tup),index_cond_c_tuples)
+    cn_cond_dicts = map(lambda tup:dict(tup[1]),index_cond_cn_tuples)
+    #print "c-dicts", c_cond_dicts
+    #print "cn-dicts", cn_cond_dicts
+    conds=[]
+    for k in range(len(abs_conds)):
+        #print k
+        max_idx_k=max_indices_cond_tuples[k][0]
+        # c = max_indices_cond_tuples[k][1]
+        c = c_cond_dicts[k][max_idx_k]
+        cn = cn_cond_dicts[k][max_idx_k]
+        # print vars
+        #print c,"::",cn,"::",sc
+        #print solve(cn+c+sc,vars)
+        #conds.append(cn+c+sc)
+        conds.append(cn)
+    return (solve(list(itertools.chain(*conds)),vars,explicit_solutions=True),vars)
+
+#########################################################
+# Section 4.2 Looking for rational points in S_min
+
+def collect_QQ_extends(matrix):
+    def get_extensions (entry):
+        nfe = entry.as_number_field_element()
+        nf= nfe[2]
+        #print nf.im_gens()
+        return set(nf.im_gens())
+        # #alternative to only get root expressions
+        # op = entry.operator()
+        # print entry
+        # if op == None:
+        #     return set()
+        # elif op == operator.pow and abs(entry.operands()[1]) < 1:
+        #     return {entry}
+        # else:
+        #     sets=map(get_extensions,entry.operands())
+        #     return set.union(*sets)
+    # exts = set.union(*map(get_extensions,matrix.list()))
+    # return filter(lambda e: e != 1 and not e in QQ, list(exts))
+    exts = set.union(*map(get_extensions,matrix.list()))
+    return filter(lambda e: e != 1 and not e in QQ, list(exts))
 
 
+def find_Q_min(S_min,space_exts):
+    def solve_for_one_nonzero_variable(conditions,vars):
+        conds=[]
+        for var in vars:
+            conds.append(conditions+[var != 0])
+        print conds
+        solutions=SE.solve_ext(conds,*vars)
+        return solutions
+    S_min_matrix = S_min.matrix().transpose()
+    dims = S_min_matrix.dimensions()
+    vecs = S_min_matrix.columns()
+    # exts = map(lambda x:x.radical_expression(),
+    #     collect_QQ_extends(S_min_matrix.apply_map(QQbar))) # convert to qqbar to get the extension
+    # exts = map(lambda x:x.radical_expression(),
+    #    [AA(1)]+space_exts) # it does not suffice to take the space extension of S_min
+    exts = [AA(1)]+space_exts # it does not suffice to take the space extension of S_min
+    # QQ(a,b) == QQ(a+b) (see primitive element theorem)
+    #ext = sum(space_exts)
+    print exts
+    conditions=[]
+    vars=set()
+    for r in range(dims[0]):
+        print "row", S_min_matrix.row(r)
+        for c in range(dims[1]):
+            d=dict()
+            for e_id in range(len(exts)):
+                num_part=QQbar(S_min_matrix[r,c])*exts[e_id]
+                nf_gens=QQbar(num_part).as_number_field_element()[2].im_gens()
+                #g1=QQbar(S_min_matrix).as_number_field_element()[2].im_gens()
+                #nf_gens(g1+[exts[e_id]])
+                #print num_part, nf_gens
+                for gen in nf_gens:
+                    v=var("v_c"+str(c)+"_e"+str(e_id))
+                    assume(v,'rational')
+                    if d.has_key(gen):
+                        d[gen].append(v)
+                    else:
+                        d[gen] = [v]
+            print d
+            # # print "elem:",elem
+            # if elem not in QQ:
+            #     # when a rational variable without extension produces some algebraic number
+            #     var_part=var("v"+str(c)+"r")
+            #     assume(var_part,'rational')
+            #     #lhs = lhs + var_part*elem
+            #     lhs = lhs + var_part
+            #     vars.add(var_part)
+            #
+            # # num_part=expand(elem*ext)
+            # # if num_part not in QQ:
+            # #     var_part = var_part=var("v"+str(c)+"e")
+            # #     assume(var_part,'rational')
+            # #     #lhs = lhs + var_part*num_part
+            # #     lhs = lhs + var_part
+            # #     vars.add(var_part)
+            #
+            # for e_id in range(len(exts)):
+            #     num_part=expand(elem*exts[e_id]) # expand is used (sqrt(2)+1)*(sqrt(2)-1) is not in the rationals but the expansion 1 is
+            #     # print "num_part:",num_part
+            #     if num_part not in QQ:
+            #         # when a rational variable with extension produces some algebraic number
+            #         var_part=var("v"+str(c)+"e"+str(e_id))
+            #         # print "parts:"
+            #         # print lhs
+            #         # print var_part
+            #         # print num_part
+            #         assume(var_part,'rational')
+            #         lhs = lhs + var_part*num_part
+            #         vars.add(var_part)
+    #     conditions.append(lhs == 0)
+    # lvars=list(vars)
+    # print lvars
+    # #print conditions
+    # solutions= solve_for_one_nonzero_variable(conditions,lvars)
+    # #solutions= SE.solve_ext([conditions],lvars)
+    # print solutions
+    # #running solve a second time to circumvent a 0 != 0 clause in solutions
+    # solutions2 = SE.solve_ext(solutions,lvars)
+    # print solutions2
+    # forget()
+    # return (solutions2,lvars)
 # if len(sys.argv) != 2:
 #     print "Usage: %s <n>"%sys.argv[0]
 #     print "Outputs the prime factorization of n."
@@ -319,10 +517,11 @@ def mk_index_z(abs_conds, sorted_index_list, var_vector):
 
 mTest = matrix(ZZ,[[1,1,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,2]])
 
-mB_s = matrix(ZZ,[[4,1]])
+mB_s = matrix(ZZ,[[4,1],[8,2]])
+#mB_s = matrix(ZZ,[[4,-5]])
 mB_w = matrix(ZZ,[[0,0]])
 mA = matrix(ZZ,[[-2,4],[4,0]])
-# mA = matrix(ZZ,[[-1,0],[0,1]])
+#mA = matrix(ZZ,[[2,4],[4,0]])
 (row_dim,col_dim)=mA.dimensions()
 vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
 
@@ -339,7 +538,8 @@ print "eigenvalues sorted and grouped by absolute value ", evs_grouped
 print "eigenvalue index set compact", evs_indexset
 print "abstract factors of jordan matrix", abstract_fs
 
-B=MX.mk_symbol_matrix(1,2,"b")
+Bdims=mB_s.dimensions()
+B=MX.mk_symbol_matrix(Bdims[0],Bdims[1],"b")
 P=MX.mk_symbol_matrix(2,2,"p")
 D=MX.mk_symbol_matrix(2,2,"a")  # entries of this matrix must be sorted first when expanding
                                 # to make the algorithm work. Hence it is called "a"
@@ -370,12 +570,26 @@ nbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),
 
 # build eigenvalue index set Ind
 ind=sorted(list(abs_ev_index_set_from_abstract_lmatrix(nbpdq)))
-abs_conds=mk_abstract_conds(nbpdq)
-zvec=MX.mk_symbol_matrix(2,1,"z")
+abs_conds = mk_abstract_conds(nbpdq)
+zvec = MX.mk_symbol_matrix(2,1,"z")
 #cond_0=mk_abstract_cond_k_constraints_S_plus(abs_conds[0],ind,zvec)
-index_z_k=mk_index_z(abs_conds,ind,zvec)
-pos_eigenspace=positive_eigenspace_of(mA)
+index_z_k,index_cond_c_tuples = mk_index_z(abs_conds,ind,zvec)
+pos_eigenspace = positive_eigenspace_of(mA)
+in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
+c_vars=in_space_conds[1]
+v_vars=in_space_conds[2]
+allvars=in_space_conds[1]+in_space_conds[2]
+max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
+S_min_conds=complex_space_conditions(abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
+S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
+#   intersecting S_min with VectorSpace(QQ,n) does not work with sage math
+# methods since the ambient space is not the same.
+#   All space extensions are computed, because it does not suffice to only
+# only use space extensions from S_min
+algebraic_base_extends = collect_QQ_extends(mD)
 
+
+print "done"
 
 # testing the index function
 # a= cond[0][cond[0].keys()[2]][QQbar(1)]

@@ -103,3 +103,11 @@ def replace_symbols_in_lmatrix(lmx_sym,lmx_val,lmatrix):
     d=dict(zip(map(repr,lst_sym),lst_val))
     #print d
     return walk_lists(d,lmatrix)
+
+def linear_combination_of(coefficient_vec,matrix):
+    coeffs=coefficient_vec.list()
+    vecs=matrix.columns()
+    lc=0
+    for c,v in zip(coeffs,vecs):
+        lc = lc + c * v
+    return lc
