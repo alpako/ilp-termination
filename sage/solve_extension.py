@@ -204,10 +204,19 @@ def find_instance_for_solution_equations(equations):
 
 
 def solution_to_space(solution,coeff_vars,vec_vars):
+    def find_fresh_vars(solution,named_vars):
+        vars=set.union(*map(lambda x:set(list(x.variables())),solution))
+        fvars=vars.difference(set(named_vars))
+        return list(fvars)
+    def init_fresh_vars(solution,fvars):
+        d=dict(zip(fvars,[1]*len(fvars)))
+        isol = map(lambda x:x.substitute(d),solution)
+        return isol
     def eq_to_row(eq,vars):
         # print vars
         equals0 = eq.lhs() - eq.rhs()
         facts = map(lambda v:equals0.coefficient(v),vars)
+        # print equals0,vars,facts
         return facts
     def update_dict(v,t,d):
         td={v:t}
@@ -216,8 +225,12 @@ def solution_to_space(solution,coeff_vars,vec_vars):
         dnew[v]=t
         return dnew
     # substitute coefficients to remove them.
+    fvars=find_fresh_vars(solution,coeff_vars+vec_vars)
+    # print solution
+    # solution = init_fresh_vars(solution,fvars)
+    # print solution
     subs_dict=dict()
-    for v in coeff_vars:
+    for v in coeff_vars+fvars:
         for rel in solution:
             # print v,rel
             if rel.operator() == operator.eq:
@@ -226,6 +239,8 @@ def solution_to_space(solution,coeff_vars,vec_vars):
                 if rel.rhs() == v:
                     subs_dict=update_dict(v,rel.lhs(),subs_dict)
     subs_solution=map(lambda rel:rel.substitute(subs_dict),solution)
+    # print "subs_dict",subs_dict
+    # print subs_solution
     rows=[]
     for rel in subs_solution:
         # print rel
@@ -233,6 +248,6 @@ def solution_to_space(solution,coeff_vars,vec_vars):
             rows.append(eq_to_row(rel,vec_vars))
     # return rows
     # convert to kernel space
-    #print rows
+    # print rows
     kspace = S.transpose(S.matrix(rows)).kernel()
     return kspace

@@ -517,11 +517,11 @@ def find_Q_min(S_min,space_exts):
 
 mTest = matrix(ZZ,[[1,1,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,2]])
 
-mB_s = matrix(ZZ,[[4,1],[8,2]])
-#mB_s = matrix(ZZ,[[4,-5]])
+#mB_s = matrix(ZZ,[[4,1],[8,2]])
+mB_s = matrix(ZZ,[[4,-5]])
 mB_w = matrix(ZZ,[[0,0]])
-mA = matrix(ZZ,[[-2,4],[4,0]])
-#mA = matrix(ZZ,[[2,4],[4,0]])
+#mA = matrix(ZZ,[[-2,4],[4,0]])
+mA = matrix(ZZ,[[2,4],[4,0]])
 (row_dim,col_dim)=mA.dimensions()
 vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
 
