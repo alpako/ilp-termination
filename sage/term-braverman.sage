@@ -18,7 +18,7 @@ import misc_matrix as MX
 import solve_extension as SE
 
 #CCp=ComplexField(63)
-
+reload(SE)
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # functions #
@@ -431,77 +431,92 @@ def find_Q_min(S_min,space_exts):
         conds=[]
         for var in vars:
             conds.append(conditions+[var != 0])
-        print conds
+        #print conds
         solutions=SE.solve_ext(conds,*vars)
         return solutions
+    def gen_vars(col_count,exts):
+        vardict=dict()
+        vars=[]
+        for c in range(col_count):
+            vardict[c]=dict()
+            for e_id in range(len(exts)):
+                v=var("v_c"+str(c)+"_e"+str(e_id))
+                vardict[c][exts[e_id]]=v
+                vars.append(v)
+                assume(v,'rational')
+        return vardict,vars
+    def solution_to_coefficients(solution,vardict,vars):
+        idict=dict()
+        for eq in solution:
+            for v in vars:
+                if eq.operator() == operator.eq:
+                    if eq.lhs() == v:
+                        idict[v]=eq.rhs()
+                    if eq.rhs() == v:
+                        idict[v]=eq.lhs()
+                if eq.operator() == operator.ne:
+                    if (eq.lhs() == v and eq.rhs() == 0) or (eq.rhs() == v and eq.lhs() == 0):
+                        idict[v] = 1
+        idict = dict(map(lambda x:(x[0],x[1].substitute(idict)),idict.items())) # maybe mor than one subtitution step is needed
+        coeffs=[]
+        for c in vardict.keys():
+            coeff=0
+            for ext in vardict[c].keys():
+                v = vardict[c][ext]
+                if not idict.has_key(v):
+                    idict[v]=0
+                coeff = coeff + idict[v]*ext.radical_expression()
+            coeffs.append(coeff)
+        # print "idict",idict
+        return coeffs
+
     S_min_matrix = S_min.matrix().transpose()
     dims = S_min_matrix.dimensions()
     vecs = S_min_matrix.columns()
-    # exts = map(lambda x:x.radical_expression(),
-    #     collect_QQ_extends(S_min_matrix.apply_map(QQbar))) # convert to qqbar to get the extension
-    # exts = map(lambda x:x.radical_expression(),
-    #    [AA(1)]+space_exts) # it does not suffice to take the space extension of S_min
-    exts = [AA(1)]+space_exts # it does not suffice to take the space extension of S_min
-    # QQ(a,b) == QQ(a+b) (see primitive element theorem)
-    #ext = sum(space_exts)
-    print exts
+    exts = map(abs,[AA(1)]+space_exts) # it does not suffice to take the space extension of S_min
+    # print exts
     conditions=[]
-    vars=set()
+    vardict,vars=gen_vars(dims[1],exts)
     for r in range(dims[0]):
-        print "row", S_min_matrix.row(r)
+        #print "row", S_min_matrix.row(r)
+        d=dict()
         for c in range(dims[1]):
-            d=dict()
             for e_id in range(len(exts)):
                 num_part=QQbar(S_min_matrix[r,c])*exts[e_id]
                 nf_gens=QQbar(num_part).as_number_field_element()[2].im_gens()
-                #g1=QQbar(S_min_matrix).as_number_field_element()[2].im_gens()
-                #nf_gens(g1+[exts[e_id]])
-                #print num_part, nf_gens
+                # print "np:",vardict[c][exts[e_id]],num_part,nf_gens
+                signf=1
+                if QQbar(num_part) < 0:
+                    signf = -1
                 for gen in nf_gens:
-                    v=var("v_c"+str(c)+"_e"+str(e_id))
-                    assume(v,'rational')
-                    if d.has_key(gen):
-                        d[gen].append(v)
+                    #v=var("v_c"+str(c)+"_e"+str(e_id))
+                    v=vardict[c][exts[e_id]]
+                    k=abs(gen) # only use positive extensions as key
+                    if d.has_key(k):
+                        d[k].append(signf*v)
                     else:
-                        d[gen] = [v]
-            print d
-            # # print "elem:",elem
-            # if elem not in QQ:
-            #     # when a rational variable without extension produces some algebraic number
-            #     var_part=var("v"+str(c)+"r")
-            #     assume(var_part,'rational')
-            #     #lhs = lhs + var_part*elem
-            #     lhs = lhs + var_part
-            #     vars.add(var_part)
-            #
-            # # num_part=expand(elem*ext)
-            # # if num_part not in QQ:
-            # #     var_part = var_part=var("v"+str(c)+"e")
-            # #     assume(var_part,'rational')
-            # #     #lhs = lhs + var_part*num_part
-            # #     lhs = lhs + var_part
-            # #     vars.add(var_part)
-            #
-            # for e_id in range(len(exts)):
-            #     num_part=expand(elem*exts[e_id]) # expand is used (sqrt(2)+1)*(sqrt(2)-1) is not in the rationals but the expansion 1 is
-            #     # print "num_part:",num_part
-            #     if num_part not in QQ:
-            #         # when a rational variable with extension produces some algebraic number
-            #         var_part=var("v"+str(c)+"e"+str(e_id))
-            #         # print "parts:"
-            #         # print lhs
-            #         # print var_part
-            #         # print num_part
-            #         assume(var_part,'rational')
-            #         lhs = lhs + var_part*num_part
-            #         vars.add(var_part)
-    #     conditions.append(lhs == 0)
-    # lvars=list(vars)
-    # print lvars
-    # #print conditions
-    # solutions= solve_for_one_nonzero_variable(conditions,lvars)
-    # #solutions= SE.solve_ext([conditions],lvars)
+                        d[k] = [signf*v]
+            # print "d:",d
+        for ext in d.keys():
+            #print ext,ext != 1
+            if ext != 1:
+                conditions.append(sum(d[ext]) == 0)
+    # print "basic conditions", conditions
+    # print vardict
+    # print vars
+    solutions= solve_for_one_nonzero_variable(conditions,vars)
     # print solutions
+    # reduce to real solutions not containing 0 != 0
+    solutions= SE.solve_ext(solutions,vars)
+    # print solutions
+    forget() # forget that the variables are rational
+    coeffs=map(lambda s: solution_to_coefficients(s,vardict,vars),solutions)
+    # print "coeffs",coeffs
+    vecs=map(lambda v:MX.linear_combination_of(vector(v),S_min_matrix),coeffs)
+    # print vecs
+    V=VectorSpace(QQ,S_min.degree())
+    Q_min=V.span(vecs)
+    return Q_min
     # #running solve a second time to circumvent a 0 != 0 clause in solutions
     # solutions2 = SE.solve_ext(solutions,lvars)
     # print solutions2
@@ -512,16 +527,100 @@ def find_Q_min(S_min,space_exts):
 #     print "Outputs the prime factorization of n."
 #     sys.exit(1)
 
+#########################################################
+# Section 4.2 Reducing A to a A' of size d x d
+
+def apply_reduction_on(cs_matrix,cw_matrix,alphas,alpha_lin):
+    a_vec=vector(alphas)
+    cs = map(
+        lambda r:map(
+            lambda c:var("Bs_"+str(r)+"_"+str(c)),
+            range(len(alphas))),
+        range(cs_matrix.dimensions()[0]))
+    cw = map(
+        lambda r:map(
+            lambda c:var("Bw_"+str(r)+"_"+str(c)),
+            range(len(alphas))),
+        range(cw_matrix.dimensions()[0]))
+    crmx=matrix(cs+cw)
+    cvars=crmx.list()
+    cmx=matrix(cs_matrix.rows() + cw_matrix.rows())
+    lhs = cmx * alpha_lin
+    rhs = crmx * a_vec
+    conditions=map(lambda r:lhs[r] - rhs[r] == 0, range(crmx.dimensions()[0]))
+    #print conditions
+    sol_dict=solve(conditions,cvars,solution_dict=True)[0]
+    #print sol_dict
+    allvars=set.union(*map(lambda x:set(x.variables()),sol_dict.values()))
+    fvars=allvars.difference(set(alphas))
+    var_dict= dict(zip(fvars,[1]*len(fvars)) + zip(alphas,[1]*len(alphas)))
+    nsol_dict= dict(map(lambda x:(x[0],x[1].substitute(var_dict)),sol_dict.items()))
+    cs_n= matrix(cs).apply_map(lambda x:x.substitute(nsol_dict))
+    cw_n= matrix(cw).apply_map(lambda x:x.substitute(nsol_dict))
+    return (cs_n,cw_n)
+
+def find_reduction_of_matrix(matrix,subspace):
+    def gen_vars(d):
+        alphas=[]
+        betas=[]
+        for i in range(d):
+            alphas.append(var("a_"+str(i),latex_name="\\alpha_"+str(i)))
+            betas.append(var("b_"+str(i),latex_name="\\beta_"+str(i)))
+        return (alphas,betas)
+    subspace_basis=subspace.matrix().transpose()
+    dims=subspace_basis.dimensions()
+    alphas,betas = gen_vars(dims[1]) # generate variables for each columns
+    alpha_lin=MX.linear_combination_of(vector(alphas),subspace_basis)
+    beta_lin=MX.linear_combination_of(vector(betas),subspace_basis)
+    # print subspace_basis
+    # print alphas,alpha_lin
+    # print betas,beta_lin
+    # print matrix*alpha_lin
+    nbetas = (matrix * alpha_lin).list()
+    # #deprecated code
+    # vec_lhs = matrix * alpha_lin
+    # vec_rhs = beta_lin
+    # conditions=[]
+    # for r in range(dims[0]):
+    #     conditions.append(vec_lhs[r] - vec_rhs[r] == 0)
+    # print conditions
+    # sol_dict=solve(conditions,betas,solution_dict=True)[0]
+    # nbetas=map(lambda x:x.substitute(sol_dict),betas)
+    red_mx_s=MX.mk_symbol_matrix(dims[1],dims[1],"A") # reduced symbolic matrix
+    red_mx_vars=red_mx_s.list()
+    lhs = red_mx_s * vector(alphas)
+    rhs = nbetas
+    conditions=map(lambda i: lhs[i] - rhs[i] == 0,range(dims[1]))
+    # print conditions
+    sol_dict=solve(conditions,red_mx_vars,solution_dict=True)[0]
+    # print sol_dict
+    allvars=set.union(*map(lambda x:set(x.variables()),sol_dict.values()))
+    fvars=allvars.difference(set(alphas))
+    var_dict= dict(zip(fvars,[1]*len(fvars)) + zip(alphas,[1]*len(alphas)))
+    nsol_dict= dict(map(lambda x:(x[0],x[1].substitute(var_dict)),sol_dict.items()))
+    # print nsol_dict
+    red_mx_n= red_mx_s.apply_map(lambda x:x.substitute(nsol_dict))
+    return (red_mx_n,alphas,alpha_lin)
+
+
+
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # computations #
 
 mTest = matrix(ZZ,[[1,1,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,2]])
 
-#mB_s = matrix(ZZ,[[4,1],[8,2]])
+#example 1
+# mB_s = matrix(ZZ,[[4,1],[8,2]])
+# mB_w = matrix(ZZ,[[0,0]])
+# mA = matrix(ZZ,[[-2,4],[4,0]])
+
+#example 2
 mB_s = matrix(ZZ,[[4,-5]])
 mB_w = matrix(ZZ,[[0,0]])
-#mA = matrix(ZZ,[[-2,4],[4,0]])
 mA = matrix(ZZ,[[2,4],[4,0]])
+
+
+
 (row_dim,col_dim)=mA.dimensions()
 vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
 
@@ -587,7 +686,15 @@ S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
 #   All space extensions are computed, because it does not suffice to only
 # only use space extensions from S_min
 algebraic_base_extends = collect_QQ_extends(mD)
+Q_min=find_Q_min(S_min,algebraic_base_extends)
+R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
 
+# find_Q_min test: example braverman
+t_Q_min=find_Q_min(VectorSpace(SR,3).subspace_with_basis([[1,0,sqrt(2)],[-sqrt(2),1,0]]),
+    [QQbar(sqrt(2))])
+print "braverman ex.3.:",t_Q_min
+
+rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
 
 print "done"
 
