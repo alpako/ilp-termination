@@ -8,8 +8,8 @@ from sage.all import *
 
 def mk_symbol_vector(dim,symbol):
     return matrix(1,dim, lambda i,j: var(
-        symbol+"_"+str(i),
-        latex_name=symbol+"_{"+str(i)+"}"))
+        symbol+"_"+str(j),
+        latex_name=symbol+"_{"+str(j)+"}"))
 
 def mk_symbol_matrix(rdim,cdim,symbol):
     return matrix(rdim,cdim, lambda i,j: var(

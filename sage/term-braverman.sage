@@ -251,13 +251,13 @@ def big_and(*conds):
     c = True
     for cond in conds:
         c = c and cond
-        print cond, bool(cond), c
+        # print cond, bool(cond), c
     return c
 
 #########################################################
 # Lemma 6
 
-def mk_abstract_cond_k_to_constraints(abs_cond_k, sorted_index_list, var_vector,only_positive_space):
+def mk_abstract_cond_k_to_constraints(abs_cond_k, sorted_index_list, var_vector,only_positive_space,is_weak_part):
     # returns a index_z depending on abs_cond_k
     def condition_for_index(curr_idx,idx):
         if curr_idx > idx:
@@ -293,8 +293,11 @@ def mk_abstract_cond_k_to_constraints(abs_cond_k, sorted_index_list, var_vector,
         #print "c",idx,":", c , "==>" , big_and(*c)
         return list(itertools.chain(*c)) #big_and(*c)
     def conditions_for_indices(rev_idxs):
-        cs = zip(rev_idxs,
-            map(lambda idx:conditions_for_index(rev_idxs,idx),rev_idxs)
+        idxs=list(rev_idxs)
+        if is_weak_part: # hack to introduce None as zero index
+            idxs.append(0)
+        cs = zip(idxs,
+            map(lambda idx:conditions_for_index(rev_idxs,idx),idxs)
             )
         return cs
     def subsdict(var_vector,num_vector):
@@ -309,26 +312,30 @@ def mk_abstract_cond_k_to_constraints(abs_cond_k, sorted_index_list, var_vector,
             d=subsdict(var_vector,num_vector)
             for (i,cs) in idx_cond_tuples:
                 num_cs=map(lambda c: handle_expression(d,c),cs)
-                print num_cs, all(num_cs)
+                # print num_cs, all(num_cs)
                 if all(num_cs):
                     return i
             return None
     rev_idxs=list(reversed(sorted_index_list))
     idx_cond_tuples = conditions_for_indices(rev_idxs)
-    #print "rev_idxs",list(rev_idxs)
-    #print "idx_cond_tuples",idx_cond_tuples
+    # print "rev_idxs",list(rev_idxs)
+    # print "idx_cond_tuples",idx_cond_tuples
     partial_index_z = functools.partial(index_z,idx_cond_tuples,var_vector)
     return (partial_index_z,idx_cond_tuples)
 
-def mk_abstract_conds_to_constraints(abs_conds, sorted_index_list, var_vector,only_positive_space):
+def mk_abstract_conds_to_constraints(abs_conds, sorted_index_list, var_vector,only_positive_space, is_weak_part):
     func_cond_tuple_list=map(lambda cond_k:
-            mk_abstract_cond_k_to_constraints(cond_k,sorted_index_list,var_vector,only_positive_space), abs_conds)
+            mk_abstract_cond_k_to_constraints(cond_k,sorted_index_list,var_vector,only_positive_space, is_weak_part), abs_conds)
     return func_cond_tuple_list
 
-def mk_index_z(abs_conds, sorted_index_list, var_vector):
-    func_cond_tuple_list=mk_abstract_conds_to_constraints(abs_conds,sorted_index_list,var_vector,True) # index_z uses only the positive eigenspace.
-    index_z_func_list=map(lambda tup:tup[0],func_cond_tuple_list)
-    index_cond_tuples=map(lambda tup:tup[1],func_cond_tuple_list)
+def mk_index_z(s_abs_conds, w_abs_conds, sorted_index_list, var_vector):
+    s_indices=filter(lambda x: x[0] != QQbar(0) and x[0] != 0, sorted_index_list)
+    w_indices=sorted_index_list
+    s_func_cond_tuple_list=mk_abstract_conds_to_constraints(s_abs_conds,s_indices,var_vector,True,False) # index_z uses only the positive eigenspace.
+    w_func_cond_tuple_list=mk_abstract_conds_to_constraints(w_abs_conds,w_indices,var_vector,True,True) # weak part
+    # print "wfunc:",w_func_cond_tuple_list
+    index_z_func_list=map(lambda tup:tup[0],s_func_cond_tuple_list + w_func_cond_tuple_list)
+    index_cond_tuples=map(lambda tup:tup[1],s_func_cond_tuple_list + w_func_cond_tuple_list)
     def index_z_k(index_z_list,num_vector_z, row_k):
         return index_z_list[k](num_vector_z)
     return (functools.partial(index_z_k,index_z_func_list),index_cond_tuples)
@@ -358,8 +365,8 @@ def max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds):
         SE.any_combination_of(rest_conds))
     vars=in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
     for idx,conds in cond_k:
-        # print idx, conds, in_pos_eigenspace_conds[1]
         cond_disjunct=map(lambda cs:cs+in_pos_eigenspace_conds[0]+conds,rest_conditions_combinations)
+        # print idx, cond_disjunct, in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
         solutions=SE.solve_ext(cond_disjunct,*vars)
         # print "solutions:", solutions
         if len(solutions) > 0:
@@ -370,6 +377,8 @@ def max_indices_cond(cond_tuples,var_vec,in_pos_eigenspace_conds):
     result=[]
     for k in range(len(cond_tuples)):
         r=max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds)
+        #print "mx_idx_k",k,r
+        #print "cond_t_k:",cond_tuples[k]
         result.append((r[0],r[1][0]))        # only take the first solutions if there are more
         #if r[0] == None:
         #    return []
@@ -378,17 +387,18 @@ def max_indices_cond(cond_tuples,var_vec,in_pos_eigenspace_conds):
 #########################################################
 # Lemma 8
 
-def complex_space_conditions(abs_conds,sorted_index_list,var_vec,index_cond_c_tuples,max_indices_cond_tuples,in_space_conds):
-    index_cond_cn_tuples = mk_abstract_conds_to_constraints(abs_conds,sorted_index_list,var_vec,False)
+def complex_space_conditions(s_abs_conds,w_abs_conds,sorted_index_list,var_vec,index_cond_c_tuples,max_indices_cond_tuples,in_space_conds):
+    s_index_cond_cn_tuples = mk_abstract_conds_to_constraints(s_abs_conds,sorted_index_list,var_vec,False,False)
+    w_index_cond_cn_tuples = mk_abstract_conds_to_constraints(w_abs_conds,sorted_index_list,var_vec,False,True)
     # print index_cond_cn_tuples
     vars=in_space_conds[1]+in_space_conds[2]
     sc=in_space_conds[0]
     c_cond_dicts= map(lambda tup:dict(tup),index_cond_c_tuples)
-    cn_cond_dicts = map(lambda tup:dict(tup[1]),index_cond_cn_tuples)
+    cn_cond_dicts = map(lambda tup:dict(tup[1]),s_index_cond_cn_tuples+w_index_cond_cn_tuples)
     #print "c-dicts", c_cond_dicts
     #print "cn-dicts", cn_cond_dicts
     conds=[]
-    for k in range(len(abs_conds)):
+    for k in range(len(s_abs_conds+w_abs_conds)):
         #print k
         max_idx_k=max_indices_cond_tuples[k][0]
         # c = max_indices_cond_tuples[k][1]
@@ -602,102 +612,241 @@ def find_reduction_of_matrix(matrix,subspace):
     red_mx_n= red_mx_s.apply_map(lambda x:x.substitute(nsol_dict))
     return (red_mx_n,alphas,alpha_lin)
 
+#########################################################
+# zero vector termination check
 
+def terminates_on_zero(B_s,B_w):
+    zv = zero_vector(B_s.dimensions()[0])
+    s_conds=map(lambda x:x>0,(B_s * zv).list())
+    w_conds=map(lambda x:x>=0,(B_w * zv).list())
+    if all(s_conds+w_conds):
+        return False
+    else:
+        return True
+
+#########################################################
+# main termination check function
+
+def termination_check(matrix_A,matrix_B_s,matrix_B_w):
+    mA   = matrix_A
+    mB_s = matrix_B_s
+    mB_w = matrix_B_w
+
+    zvec = MX.mk_symbol_vector(mA.dimensions()[0],"z").transpose()
+    #########################################################
+    # 1. compute JNF
+    (mD,mP) = mA.jordan_form(QQbar,transformation=true)
+    mPi = mP.inverse()
+
+    #########################################################
+    # 2. find factors porresponding to entries in A in BPDQ
+    sB_dims=mB_s.dimensions()
+    wB_dims=mB_w.dimensions()
+    A_dims=mA.dimensions()
+    sB=MX.mk_symbol_matrix(sB_dims[0],sB_dims[1],"bs")
+    wB=MX.mk_symbol_matrix(wB_dims[0],wB_dims[1],"bw")
+    P=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"p")
+    D=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"a")  # entries of this matrix must be sorted first when expanding
+                                    # to make the algorithm work. Hence it is called "a"
+    Q=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"q")
+
+    sBPDQ=(sB*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
+    wBPDQ=(wB*P*D*Q).expand()
+    # a matrix entry now has the form (apdq + apdq + apdq + ...), where each
+    # a,p,d,q corresponds to one entry of the original matrices.
+    #
+    # split into operators and operands
+    soBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(sBPDQ))
+    woBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(wBPDQ))
+    # Now we have a list representation of our matrix where each entry is split
+    # into a tuple (operator,list of arguments).
+    # Here we want to replace the symbolic values of matrix A by some abstract
+    # representation of the Jordan matrix D to the power of some natural number
+    soBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),soBPDQ)
+    woBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),woBPDQ)
+    # combine parts by same absolute eigenvalues and direction for every entry.
+    # an entry.
+    snBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,soBPdQ)
+    wnBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,woBPdQ)
+    # Entries now have the form (abs(a_0)(dir(a_0)pdq+dir(a_1)pdq+...)
+    # + abs(a_2)(dir(a_2)pdq+dir(a_3)pdq+...) + ...).
+    # Next the variables b p q are replaced by their values.
+    snbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(sB),MX.matrix_to_list(mB_s),snBPdQ)
+    snbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),snbPdQ)
+    snbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),snbpdQ)
+
+    wnbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(wB),MX.matrix_to_list(mB_w),wnBPdQ)
+    wnbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),wnbPdQ)
+    wnbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),wnbpdQ)
+
+    #########################################################
+    # 3. build the index set and abstract conditions
+    ind=sorted(list(set.union(abs_ev_index_set_from_abstract_lmatrix(snbpdq),
+        abs_ev_index_set_from_abstract_lmatrix(wnbpdq))))
+    s_abs_conds = mk_abstract_conds(snbpdq)
+    w_abs_conds = mk_abstract_conds(wnbpdq)
+
+    #########################################################
+    # 4. build index_z function  and conditions for each index and constraint
+    index_z_k,index_cond_c_tuples = mk_index_z(s_abs_conds,w_abs_conds,ind,zvec)
+
+    #########################################################
+    # 5. build positive eigenspace and constraints for vectors inside of it
+    pos_eigenspace = positive_eigenspace_of(mA)
+    in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
+
+    #########################################################
+    # 6. collect all variables and coefficients used
+    c_vars=in_space_conds[1] # coefficients
+    v_vars=in_space_conds[2] # variables (from zvec)
+    allvars=in_space_conds[1]+in_space_conds[2]
+
+    #########################################################
+    # 7. compute the maxial satisfying index for each of the k constraints
+    max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
+
+    #########################################################
+    # 8. compute S_min
+    S_min_conds=complex_space_conditions(s_abs_conds,w_abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
+    S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
+
+    #########################################################
+    # 9. compute Q_min and R_min
+    algebraic_base_extends = collect_QQ_extends(mD)
+    Q_min=find_Q_min(S_min,algebraic_base_extends)
+    R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
+
+    #########################################################
+    # 10. decide termination
+    if S_min.dimension() == Q_min.dimension():
+        print "case 1 non-terminating"
+        return "non-terminating"
+    if Q_min.dimension() == 0:
+        #########################################################
+        # 10.2 test whether zero vector is non-terminating
+        if terminates_on_zero(mB_s,mB_w):
+            print "case 2: terminating"
+            return "terminating"
+        else:
+            return "case 2: non-terminating"
+            return "non-terminating"
+    if 0 < Q_min.dimension() < S_min.dimension():
+        #########################################################
+        # 10.3 run termination_check onr educed program
+        print "case 3: reduce"
+        rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
+        rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
+        termination_check(rA,rB_s,rB_w)
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # computations #
 
-mTest = matrix(ZZ,[[1,1,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,2]])
 
 #example 1
-# mB_s = matrix(ZZ,[[4,1],[8,2]])
-# mB_w = matrix(ZZ,[[0,0]])
-# mA = matrix(ZZ,[[-2,4],[4,0]])
+mB_s = matrix(ZZ,[[4,1],[8,2]])
+mB_w = matrix(ZZ,[[0,0]])
+mA = matrix(ZZ,[[-2,4],[4,0]])
 
 #example 2
-mB_s = matrix(ZZ,[[4,-5]])
-mB_w = matrix(ZZ,[[0,0]])
-mA = matrix(ZZ,[[2,4],[4,0]])
+# mB_s = matrix(ZZ,[[4,-5]])
+# mB_w = matrix(ZZ,[[0,0]])
+# mA = matrix(ZZ,[[2,4],[4,0]])
 
 
 
-(row_dim,col_dim)=mA.dimensions()
-vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
+# (row_dim,col_dim)=mA.dimensions()
+# vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
 
-(mD,mP) = mA.jordan_form(QQbar,transformation=true)
-mPi = mP.inverse()
-evs=mD.eigenvalues()
-evs_grouped=group_eigenvalues_by_abs(evs)
-evs_indexset=eigenvalue_superset(evs_grouped)
-abstract_fs=to_abstract_power_factors(mD)
-
-print "is transformation matrix mP correct? ", mD == mPi * mA * mP
-print "eigenvalues ", evs
-print "eigenvalues sorted and grouped by absolute value ", evs_grouped
-print "eigenvalue index set compact", evs_indexset
-print "abstract factors of jordan matrix", abstract_fs
-
-Bdims=mB_s.dimensions()
-B=MX.mk_symbol_matrix(Bdims[0],Bdims[1],"b")
-P=MX.mk_symbol_matrix(2,2,"p")
-D=MX.mk_symbol_matrix(2,2,"a")  # entries of this matrix must be sorted first when expanding
-                                # to make the algorithm work. Hence it is called "a"
-Q=MX.mk_symbol_matrix(2,2,"q")
-
-BPDQ=(B*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
-# a matrix entry now has the form (apdq + apdq + apdq + ...), where each
-# a,p,d,q corresponds to one entry of the original matrices.
+# (mD,mP) = mA.jordan_form(QQbar,transformation=true)
+# mPi = mP.inverse()
+# # evs=mD.eigenvalues()
+# # evs_grouped=group_eigenvalues_by_abs(evs)
+# # evs_indexset=eigenvalue_superset(evs_grouped)
+# # abstract_fs=to_abstract_power_factors(mD)
 #
-# split into operators and operands
-oBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(BPDQ))
-# Now we have a list representation of our matrix where each entry is split
-# into a tuple (operator,list of arguments).
-# Here we want to replace the symbolic values of matrix A by some abstract
-# representation of the Jordan matrix D to the power of some natural number
-oBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),oBPDQ)
-# combine parts by same absolute eigenvalues and direction for every entry.
-# an entry.
-nBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,oBPdQ)
-# Entries now have the form (abs(a_0)(dir(a_0)pdq+dir(a_1)pdq+...)
-# + abs(a_2)(dir(a_2)pdq+dir(a_3)pdq+...) + ...).
-# Next the variables b p q are replaced by their values.
-nbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(B),MX.matrix_to_list(mB_s),nBPdQ)
-nbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),nbPdQ)
-nbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),nbpdQ)
-# At this point we have somehow the representation for Cond_k for all k.
-# we transform it to a more concrete representation.
-
-# build eigenvalue index set Ind
-ind=sorted(list(abs_ev_index_set_from_abstract_lmatrix(nbpdq)))
-abs_conds = mk_abstract_conds(nbpdq)
-zvec = MX.mk_symbol_matrix(2,1,"z")
-#cond_0=mk_abstract_cond_k_constraints_S_plus(abs_conds[0],ind,zvec)
-index_z_k,index_cond_c_tuples = mk_index_z(abs_conds,ind,zvec)
-pos_eigenspace = positive_eigenspace_of(mA)
-in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
-c_vars=in_space_conds[1]
-v_vars=in_space_conds[2]
-allvars=in_space_conds[1]+in_space_conds[2]
-max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
-S_min_conds=complex_space_conditions(abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
-S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
-#   intersecting S_min with VectorSpace(QQ,n) does not work with sage math
-# methods since the ambient space is not the same.
-#   All space extensions are computed, because it does not suffice to only
-# only use space extensions from S_min
-algebraic_base_extends = collect_QQ_extends(mD)
-Q_min=find_Q_min(S_min,algebraic_base_extends)
-R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
-
-# find_Q_min test: example braverman
-t_Q_min=find_Q_min(VectorSpace(SR,3).subspace_with_basis([[1,0,sqrt(2)],[-sqrt(2),1,0]]),
-    [QQbar(sqrt(2))])
-print "braverman ex.3.:",t_Q_min
-
-rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
-
-print "done"
-
-# testing the index function
-# a= cond[0][cond[0].keys()[2]][QQbar(1)]
-# cond_0[0](matrix([[-SR(a[1])],[SR(a[0])]]))
+# # print "is transformation matrix mP correct? ", mD == mPi * mA * mP
+# # print "eigenvalues ", evs
+# # print "eigenvalues sorted and grouped by absolute value ", evs_grouped
+# # print "eigenvalue index set compact", evs_indexset
+# # print "abstract factors of jordan matrix", abstract_fs
+#
+# sB_dims=mB_s.dimensions()
+# wB_dims=mB_w.dimensions()
+# A_dims=mA.dimensions()
+# sB=MX.mk_symbol_matrix(sB_dims[0],sB_dims[1],"bs")
+# wB=MX.mk_symbol_matrix(wB_dims[0],wB_dims[1],"bw")
+# P=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"p")
+# D=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"a")  # entries of this matrix must be sorted first when expanding
+#                                 # to make the algorithm work. Hence it is called "a"
+# Q=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"q")
+#
+# sBPDQ=(sB*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
+# wBPDQ=(wB*P*D*Q).expand()
+# # a matrix entry now has the form (apdq + apdq + apdq + ...), where each
+# # a,p,d,q corresponds to one entry of the original matrices.
+# #
+# # split into operators and operands
+# soBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(sBPDQ))
+# woBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(wBPDQ))
+# # Now we have a list representation of our matrix where each entry is split
+# # into a tuple (operator,list of arguments).
+# # Here we want to replace the symbolic values of matrix A by some abstract
+# # representation of the Jordan matrix D to the power of some natural number
+# soBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),soBPDQ)
+# woBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),woBPDQ)
+# # combine parts by same absolute eigenvalues and direction for every entry.
+# # an entry.
+# snBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,soBPdQ)
+# wnBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,woBPdQ)
+# # Entries now have the form (abs(a_0)(dir(a_0)pdq+dir(a_1)pdq+...)
+# # + abs(a_2)(dir(a_2)pdq+dir(a_3)pdq+...) + ...).
+# # Next the variables b p q are replaced by their values.
+# snbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(sB),MX.matrix_to_list(mB_s),snBPdQ)
+# snbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),snbPdQ)
+# snbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),snbpdQ)
+#
+# wnbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(wB),MX.matrix_to_list(mB_w),wnBPdQ)
+# wnbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),wnbPdQ)
+# wnbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),wnbpdQ)
+#
+# # At this point we have somehow the representation for Cond_k for all k.
+# # we transform it to a more concrete representation.
+#
+# # build eigenvalue index set Ind
+# ind=sorted(list(set.union(abs_ev_index_set_from_abstract_lmatrix(snbpdq),
+#     abs_ev_index_set_from_abstract_lmatrix(wnbpdq))))
+# s_abs_conds = mk_abstract_conds(snbpdq)
+# w_abs_conds = mk_abstract_conds(wnbpdq)
+# zvec = MX.mk_symbol_matrix(2,1,"z")
+# #cond_0=mk_abstract_cond_k_constraints_S_plus(abs_conds[0],ind,zvec)
+# index_z_k,index_cond_c_tuples = mk_index_z(s_abs_conds,w_abs_conds,ind,zvec)
+# pos_eigenspace = positive_eigenspace_of(mA)
+# in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
+# c_vars=in_space_conds[1]
+# v_vars=in_space_conds[2]
+# allvars=in_space_conds[1]+in_space_conds[2]
+# max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
+# S_min_conds=complex_space_conditions(s_abs_conds,w_abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
+# S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
+# #   intersecting S_min with VectorSpace(QQ,n) does not work with sage math
+# # methods since the ambient space is not the same.
+# #   All space extensions are computed, because it does not suffice to only
+# # only use space extensions from S_min
+# algebraic_base_extends = collect_QQ_extends(mD)
+# Q_min=find_Q_min(S_min,algebraic_base_extends)
+# R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
+#
+# # find_Q_min test: example braverman
+# t_Q_min=find_Q_min(VectorSpace(SR,3).subspace_with_basis([[1,0,sqrt(2)],[-sqrt(2),1,0]]),
+#     [QQbar(sqrt(2))])
+# print "braverman ex.3.:",t_Q_min
+#
+# rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
+# rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
+#
+#
+# print "done"
+#
+# # testing the index function
+# # a= cond[0][cond[0].keys()[2]][QQbar(1)]
+# # cond_0[0](matrix([[-SR(a[1])],[SR(a[0])]]))
