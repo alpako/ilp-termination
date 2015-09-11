@@ -466,7 +466,7 @@ def find_Q_min(S_min,space_exts):
                         idict[v]=eq.lhs()
                 if eq.operator() == operator.ne:
                     if (eq.lhs() == v and eq.rhs() == 0) or (eq.rhs() == v and eq.lhs() == 0):
-                        idict[v] = 1
+                        idict[v] = SR(1)
         idict = dict(map(lambda x:(x[0],x[1].substitute(idict)),idict.items())) # maybe mor than one subtitution step is needed
         coeffs=[]
         for c in vardict.keys():
@@ -737,20 +737,9 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
         rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
         rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
         termination_check(rA,rB_s,rB_w)
+#########################################################
+# examples
 
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# computations #
-
-
-#example 1
-mB_s = matrix(ZZ,[[4,1],[8,2]])
-mB_w = matrix(ZZ,[[0,0]])
-mA = matrix(ZZ,[[-2,4],[4,0]])
-
-#example 2
-# mB_s = matrix(ZZ,[[4,-5]])
-# mB_w = matrix(ZZ,[[0,0]])
-# mA = matrix(ZZ,[[2,4],[4,0]])
 
 
 
@@ -836,10 +825,7 @@ mA = matrix(ZZ,[[-2,4],[4,0]])
 # Q_min=find_Q_min(S_min,algebraic_base_extends)
 # R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
 #
-# # find_Q_min test: example braverman
-# t_Q_min=find_Q_min(VectorSpace(SR,3).subspace_with_basis([[1,0,sqrt(2)],[-sqrt(2),1,0]]),
-#     [QQbar(sqrt(2))])
-# print "braverman ex.3.:",t_Q_min
+
 #
 # rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
 # rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
