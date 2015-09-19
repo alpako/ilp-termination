@@ -1,0 +1,12 @@
+{
+"matrix_A" : [
+  [-2,4],
+  [ 4,0]],
+"matrix_B_strict" : [
+  [4,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "nontermiating over R, terminating over Q",
+"published_in" : "Braverman 2006",
+"example_name" : "Example 1"
+}

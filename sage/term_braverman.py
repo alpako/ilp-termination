@@ -379,9 +379,10 @@ def max_indices_cond(cond_tuples,var_vec,in_pos_eigenspace_conds):
         r=max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds)
         #print "mx_idx_k",k,r
         #print "cond_t_k:",cond_tuples[k]
+        if r[0] == None:
+           # could not find an index for condition k
+           return None
         result.append((r[0],r[1][0]))        # only take the first solutions if there are more
-        #if r[0] == None:
-        #    return []
     return result
 
 #########################################################
@@ -616,7 +617,7 @@ def find_reduction_of_matrix(matrix,subspace):
 # zero vector termination check
 
 def terminates_on_zero(B_s,B_w):
-    zv = zero_vector(B_s.dimensions()[0])
+    zv = zero_vector(B_s.dimensions()[1])
     s_conds=map(lambda x:x>0,(B_s * zv).list())
     w_conds=map(lambda x:x>=0,(B_w * zv).list())
     if all(s_conds+w_conds):
@@ -626,6 +627,10 @@ def terminates_on_zero(B_s,B_w):
 
 #########################################################
 # main termination check function
+
+def clean_up(vs):
+    forget()
+    reset(vs)
 
 def termination_check(matrix_A,matrix_B_s,matrix_B_w):
     mA   = matrix_A
@@ -705,6 +710,12 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
     # 7. compute the maxial satisfying index for each of the k constraints
     max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
 
+    if max_indices == None:
+        # when no index function can be found (= no nonterminating
+        # susbspace is found = dimension of S_min is zero)
+        print "case 0: terminating"
+        return "terminating"
+
     #########################################################
     # 8. compute S_min
     S_min_conds=complex_space_conditions(s_abs_conds,w_abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
@@ -719,16 +730,19 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
     #########################################################
     # 10. decide termination
     if S_min.dimension() == Q_min.dimension():
-        print "case 1 non-terminating"
+        print "case 1: non-terminating"
+        clean_up(allvars)
         return "non-terminating"
     if Q_min.dimension() == 0:
         #########################################################
         # 10.2 test whether zero vector is non-terminating
         if terminates_on_zero(mB_s,mB_w):
             print "case 2: terminating"
+            clean_up(allvars)
             return "terminating"
         else:
             return "case 2: non-terminating"
+            clean_up(allvars)
             return "non-terminating"
     if 0 < Q_min.dimension() < S_min.dimension():
         #########################################################
@@ -736,6 +750,7 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
         print "case 3: reduce"
         rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
         rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
+        clean_up(allvars)
         termination_check(rA,rB_s,rB_w)
 #########################################################
 # examples

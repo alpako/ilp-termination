@@ -1,0 +1,13 @@
+{
+"matrix_A" : [
+  [-2,10],
+  [ 0, 1]],
+"matrix_B_strict" : [
+  [1,0],
+  [0,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "nontermiating over R, nonterminating over Q",
+"published_in" : "Podelski 2004",
+"example_name" : "?Example 1?"
+}
