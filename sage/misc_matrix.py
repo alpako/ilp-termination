@@ -25,6 +25,8 @@ def map_lmatrix(func,lmatrix):
 
 def lmatrix_from_diagonal_lblocks(lblocks,zero_elem):
     def combine_blocks(block1, block2):
+        # print "b1:",block1
+        # print "b2:",block2
         rows1=len(block1)
         cols1=len(block1[0])
         rows2=len(block2)
@@ -33,14 +35,16 @@ def lmatrix_from_diagonal_lblocks(lblocks,zero_elem):
         for i in range(0,rows1+rows2):
             row=[]
             for j in range(0,cols1+cols2):
+                # print i,j
                 if i < rows1 and j < cols1:
                     row.append(block1[i][j])
-                elif i >= rows1 and j >= cols2:
+                elif i >= rows1 and j >= cols1:
                     row.append(block2[i-rows1][j-cols1])
                 else:
                     row.append(zero_elem)
             lmatrix.append(row)
         return lmatrix
+    # print lblocks
     mx=lblocks[0]
     for i in range(1,len(lblocks)):
         mx=combine_blocks(mx,lblocks[i])

@@ -1,0 +1,16 @@
+{
+"matrix_A" : [
+  [1, 0, 1],
+  [0, 2, 0],
+  [0, 0, 1]],
+"matrix_B_strict" : [
+  [0, -1, 1073741824],
+  [0,  0, 1]
+  ],
+"matrix_B_weak" : [
+  [0, 1, 0]
+  ],
+"comment" : "variable vector = [i,l_var,1], nontermiating over R and Q",
+"published_in" : "Cook et al. 2004",
+"example_name" : "Figure 3, Example 1"
+}

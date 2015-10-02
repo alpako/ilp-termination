@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [1, 1, 0],
+  [0, 1, 1],
+  [0, 0, 1]],
+"matrix_B_strict" : [
+  [1, 0, 0]
+  ],
+"matrix_B_weak" : [
+  [0, 0, 0]],
+"comment" : "variable vector = [x,y,z]",
+"published_in" : "Cook et al. 2004",
+"example_name" : "Figure 4, Example 1"
+}

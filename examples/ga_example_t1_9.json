@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [1,  1],
+  [0, "1/2"]],
+"matrix_B_strict" : [
+  [-1,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "",
+"published_in" : "Ganty and Genaim 2013",
+"example_name" : "Table 1. #9",
+"preconditions" : "termination: x >= 0 ∨ y != 0",
+"original_program" : "while (x<y) x’=x+y; y’=-2y;"
+}

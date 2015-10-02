@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [1, 1,  0],
+  [0, 1, -1],
+  [0, 0,  1]],
+"matrix_B_strict" : [
+  [1, 0, 0],
+  [0, 0, 1]],
+"matrix_B_weak" : [
+  [0, 0, 0]],
+"comment" : "while (x_1 >= 0) do {x'_1 = x_1 +x_2; x'_2 = x_2 −1}",
+"published_in" : "Ben-Amram and Genaim 2013",
+"example_name" : "Example 3.6"
+}
