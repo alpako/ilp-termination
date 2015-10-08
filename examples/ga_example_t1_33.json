@@ -1,0 +1,16 @@
+{
+"matrix_A" : [
+  [1,0,0,1],
+  [0,0,1,0]
+  [0,0,0,1]],
+"matrix_B_strict" : [
+  [-1,1,0,0],
+  [ 0,0,0,1]],
+"matrix_B_weak" : [
+  [0,0,0,0]],
+"comment" : "variable vector [x,y,z,1]",
+"published_in" : "Ganty and Genaim 2013",
+"example_name" : "Table 1. #33",
+"preconditions" : "termination: true",
+"original_program" : "while (y>x) x’=x+1; y'=z; z=z;"
+}

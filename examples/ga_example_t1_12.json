@@ -9,7 +9,7 @@
   [0,0]],
 "comment" : "copied from Podelski 2004",
 "published_in" : "Ganty and Genaim 2013",
-"example_name" : "Table 1. #9",
+"example_name" : "Table 1. #12",
 "preconditions" : "termination: x ≤ 3 ∨ 10y − 3x != 0",
 "original_program" : "while (x>0 and y>0) x’=-2x+10y;"
 }
