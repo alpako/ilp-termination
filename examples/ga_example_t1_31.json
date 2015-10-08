@@ -1,17 +1,16 @@
 {
 "matrix_A" : [
-  [2,0,0],
-  [0,1,1],
-  [0,0,1]],
+  [1, 1, 0],
+  [0,-1,-1],
+  [0, 0, 1]],
 "matrix_B_strict" : [
-  [ 1,0,0],
-  [-1,1,0],
-  [ 0,0,1]],
+  [1,0,0],
+  [0,0,1]],
 "matrix_B_weak" : [
   [0,0,0]],
 "comment" : "variable vector [x,y,1]",
 "published_in" : "Ganty and Genaim 2013",
-"example_name" : "Table 1. #22",
+"example_name" : "Table 1. #31",
 "preconditions" : "termination: true",
-"original_program" : "while (x>0 and x<y) x’=2x; y'=y+1;"
+"original_program" : "while (x>0) x'=x+y; y'=-y-1;"
 }
