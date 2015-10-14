@@ -614,34 +614,57 @@ def find_reduction_of_matrix(matrix,subspace):
     alphas,betas = gen_vars(dims[1]) # generate variables for each columns
     alpha_lin=MX.linear_combination_of(vector(alphas),subspace_basis)
     beta_lin=MX.linear_combination_of(vector(betas),subspace_basis)
-    # print subspace_basis
-    # print alphas,alpha_lin
-    # print betas,beta_lin
-    # print matrix*alpha_lin
-    nbetas = (matrix * alpha_lin).list()
-    # #deprecated code
-    # vec_lhs = matrix * alpha_lin
-    # vec_rhs = beta_lin
-    # conditions=[]
-    # for r in range(dims[0]):
-    #     conditions.append(vec_lhs[r] - vec_rhs[r] == 0)
+    # print "find_reduction_of_matrix"
+    # print "- matrix:"
+    # print matrix
+    # print "- subspace:"
+    # print subspace
+    # print "- alpha_lin:"
+    # print alpha_lin
+    # print "- beta_lin:"
+    # print beta_lin
+    #deprecated code
+    # nbetas = (matrix * alpha_lin).list()
+    # print "- nbetas:"
+    # print nbetas
+
+    vec_lhs = matrix * alpha_lin
+    vec_rhs = beta_lin
+    conditions=[]
+    for r in range(dims[0]):
+        conditions.append(vec_lhs[r] - vec_rhs[r] == 0)
     # print conditions
-    # sol_dict=solve(conditions,betas,solution_dict=True)[0]
-    # nbetas=map(lambda x:x.substitute(sol_dict),betas)
+    sol_dict=solve(conditions,betas,solution_dict=True)[0]
+    nbetas=map(lambda x:x.substitute(sol_dict),betas)
+    # print "- nbetas:"
+    # print nbetas
     red_mx_s=MX.mk_symbol_matrix(dims[1],dims[1],"A") # reduced symbolic matrix
+    # print "- red_mx_s:"
+    # print red_mx_s
     red_mx_vars=red_mx_s.list()
     lhs = red_mx_s * vector(alphas)
     rhs = nbetas
     conditions=map(lambda i: lhs[i] - rhs[i] == 0,range(dims[1]))
+    # print "- conditions"
     # print conditions
     sol_dict=solve(conditions,red_mx_vars,solution_dict=True)[0]
+    # print "- sol_dict"
     # print sol_dict
     allvars=set.union(*map(lambda x:set(x.variables()),sol_dict.values()))
+    # print "- allvars"
+    # print allvars
     fvars=allvars.difference(set(alphas))
+    # print "- fvars"
+    # print fvars
     var_dict= dict(zip(fvars,[1]*len(fvars)) + zip(alphas,[1]*len(alphas)))
+    # print "- var_dict"
+    # print var_dict
     nsol_dict= dict(map(lambda x:(x[0],x[1].substitute(var_dict)),sol_dict.items()))
+    # print "- nsol_dict"
+    # print nsol_dict
     # print nsol_dict
     red_mx_n= red_mx_s.apply_map(lambda x:x.substitute(nsol_dict))
+    # print "end"
     return (red_mx_n,alphas,alpha_lin)
 
 #########################################################
