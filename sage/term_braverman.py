@@ -17,6 +17,8 @@ from sage.all import *
 import misc_matrix as MX
 import solve_extension as SE
 
+import take_time
+
 #CCp=ComplexField(63)
 reload(SE)
 
@@ -160,6 +162,9 @@ def abs_ev_index_set_from_abstract_lmatrix(lmatrix):
     return set.union(*map(lambda s:set.union(*s),ev_sets))
 
 def mk_abstract_cond_k(abstract_program_lmatrix,k):
+    # structure of abstract_program_lmatrix
+    # rows -> mx entry -> (add, summands)
+    # summands =
     def directions_of_ev_part(ev_part):
         dirs = set()
         for summand in ev_part:
@@ -170,15 +175,19 @@ def mk_abstract_cond_k(abstract_program_lmatrix,k):
         for summand in ev_part:
             if summand[1][0] == dir:
                 addition = summand[1][1][0]
+                # print addition
                 factor_parts = map(lambda p: p[0](*p[1]),summand[1][1][1]) # multiply b p q values
+                # print "parts",dir,factor_parts
                 factor = addition(*factor_parts)
+                # print "factor",factor
         return factor
-    def merge_ev_parts(ev_parts):
+    def merge_ev_parts(ev_parts,ev_pow):
         dirs = set.union(*map(directions_of_ev_part,ev_parts))
-        dirs.add((QQbar(1),ZZ(0))) # do not drop power here
+        dirs.add((QQbar(1),ev_pow)) # do not drop power here
         factor_dict={}
         for dir in dirs:
             factor_vec = map(lambda p: get_direction_constant_factor(p,dir),ev_parts)
+            # print "factor_vec",dir,factor_vec
             # factor_dict[dir]=factor_vec # power not dropped for key
             factor_dict[dir[0]]=factor_vec # power is dropped for key since it is already encoded in eigenvalue tuple
         return factor_dict
@@ -188,10 +197,13 @@ def mk_abstract_cond_k(abstract_program_lmatrix,k):
         for s in summands:
             if s[1][0] == ev:
                 ev_part=s[1][1][1] # the summands for each direction corresponding to ev
+        # print ev,ev_part
         return ev_part
     def mk_cond_part_for_ev(row, ev):
-        ev_parts = map(lambda e:get_ev_part_for_entry(e,ev),row)
-        ev_dict = merge_ev_parts(ev_parts)
+        # print "mk for index",ev
+        ev_parts = map(lambda e:get_ev_part_for_entry(e,ev),row) # for each entry
+        ev_dict = merge_ev_parts(ev_parts,ev[1])
+        # print ev,ev_dict
         return ev_dict
 
     index_set=abs_ev_index_set_from_abstract_lmatrix(abstract_program_lmatrix)
@@ -228,16 +240,24 @@ def positive_eigenspace_of(some_matrix):
     pes=V.vector_space_span_of_basis(bases)
     return pes
 
-# def positive_generalized_eigenspace_of(some_square_matrix):
-#     jm = some_square_matrix.jordan_form(QQbar)
-#     dim = some_square_matrix.dimensions()[0]
-#     V = VectorSpace(QQbar,dim);
-#     pvecs=[]
-#     for i in range(dim):
-#         if jm[i,i] > 0:
-#             pvecs.append(jm.row(i))
-#     pges=V.vector_space_span_of_basis(pvecs)
-#     return pges
+
+
+def positive_generalized_eigenspace_of(some_square_matrix):
+    # compute non negative generalized eigenspace
+    smx=some_square_matrix.apply_map(lambda e:e.radical_expression())
+    evecs=smx.eigenvectors_right()
+    dim = smx.dimensions()[0]
+    V = VectorSpace(QQbar,dim);
+    gvecs=[]
+    for evec in evecs:
+        if evec[0] in RR and evec[0] > 0:
+            for v in evec[1]:
+                #vs=vector(map(lambda e:e.radical_expression(),v.list()))
+                vecs=MX.generalized_eigenvectors_for(smx,evec[0],v)
+                gvecs.extend(vecs)
+    glvecs=map(lambda v:v.list(),gvecs)
+    gspace=span(glvecs,QQbar)
+    return gspace
 
 def big_and(*conds):
     # unused not working as intended.
@@ -341,16 +361,21 @@ def mk_index_z(s_abs_conds, w_abs_conds, sorted_index_list, var_vector):
     return (functools.partial(index_z_k,index_z_func_list),index_cond_tuples)
 
 def mk_in_space_conditions(space,var_vector):
+    # print "mk_in_space_conditions"
+    # print space
+    # print var_vector
     basis_matrix = space.matrix().transpose().apply_map(lambda x:QQbar(x).radical_expression())
     vec_len,coeff_count = basis_matrix.dimensions()
     coeffs = MX.mk_symbol_vector(coeff_count,'c');
-    #print "mk_in_space_condition:", coeff_count, coeffs, vec_len
-    #print basis_matrix
+    # print "mk_in_space_condition:", coeff_count, coeffs, vec_len
+    # print basis_matrix
     #for i in range(coeff_count):
     #    assume(coeffs[0][i],'rational')
 
     lhs1 = MX.linear_combination_of(coeffs,basis_matrix).list()
     lhs2 = var_vector.list()
+    # print "lhs2",lhs2
+    # print "lhs1",lhs1
     conds=map(lambda tup: tup[0] - tup[1] == 0,zip(lhs1,lhs2))
     return (conds,coeffs.list(),var_vector.list())
 
@@ -364,9 +389,15 @@ def max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds):
     rest_conditions_combinations = map(lambda css: list(itertools.chain(*css)),
         SE.any_combination_of(rest_conds))
     vars=in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
+    # print "cond_k",cond_k
+    # print "rest_conds",rest_conds
+    # print "combinations",rest_conditions_combinations
     for idx,conds in cond_k:
         cond_disjunct=map(lambda cs:cs+in_pos_eigenspace_conds[0]+conds,rest_conditions_combinations)
-        # print idx, cond_disjunct, in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
+        # print idx, cond_disjunct
+        # print idx, in_pos_eigenspace_conds[0]
+        # print idx, conds
+        # print idx, in_pos_eigenspace_conds[1]+in_pos_eigenspace_conds[2]
         solutions=SE.solve_ext(cond_disjunct,*vars)
         # print "solutions:", solutions
         if len(solutions) > 0:
@@ -377,8 +408,8 @@ def max_indices_cond(cond_tuples,var_vec,in_pos_eigenspace_conds):
     result=[]
     for k in range(len(cond_tuples)):
         r=max_index_cond_k(cond_tuples,k,var_vec,in_pos_eigenspace_conds)
-        #print "mx_idx_k",k,r
-        #print "cond_t_k:",cond_tuples[k]
+        # print "mx_idx_k",k,r
+        # print "cond_t_k:",cond_tuples[k]
         if r[0] == None:
            # could not find an index for condition k
            return None
@@ -515,7 +546,7 @@ def find_Q_min(S_min,space_exts):
     # print "basic conditions", conditions
     # print vardict
     # print vars
-    solutions= solve_for_one_nonzero_variable(conditions,vars)
+    solutions= solve_for_one_nonzero_variable(conditions,vars) # find as many possible solutions to get all vectors of Q_min
     # print solutions
     # reduce to real solutions not containing 0 != 0
     solutions= SE.solve_ext(solutions,vars)
@@ -632,17 +663,21 @@ def clean_up(vs):
     forget()
     reset(vs)
 
-def termination_check(matrix_A,matrix_B_s,matrix_B_w):
+def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
+    t=take_time.TakeTime()
+
     mA   = matrix_A
     mB_s = matrix_B_s
     mB_w = matrix_B_w
 
     zvec = MX.mk_symbol_vector(mA.dimensions()[0],"z").transpose()
+    t.print_tdiff("0",show_time)
     #########################################################
     # 1. compute JNF
     (mD,mP) = mA.jordan_form(QQbar,transformation=true)
     mPi = mP.inverse()
 
+    t.print_tdiff("1",show_time)
     #########################################################
     # 2. find factors porresponding to entries in A in BPDQ
     sB_dims=mB_s.dimensions()
@@ -684,6 +719,7 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
     wnbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),wnbPdQ)
     wnbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),wnbpdQ)
 
+    t.print_tdiff("2",show_time)
     #########################################################
     # 3. build the index set and abstract conditions
     ind=sorted(list(set.union(abs_ev_index_set_from_abstract_lmatrix(snbpdq),
@@ -691,21 +727,26 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
     s_abs_conds = mk_abstract_conds(snbpdq)
     w_abs_conds = mk_abstract_conds(wnbpdq)
 
+    t.print_tdiff("3",show_time)
     #########################################################
     # 4. build index_z function  and conditions for each index and constraint
     index_z_k,index_cond_c_tuples = mk_index_z(s_abs_conds,w_abs_conds,ind,zvec)
 
+    t.print_tdiff("4",show_time)
     #########################################################
     # 5. build positive eigenspace and constraints for vectors inside of it
-    pos_eigenspace = positive_eigenspace_of(mA)
+    #pos_eigenspace = positive_eigenspace_of(mA)
+    pos_eigenspace=positive_generalized_eigenspace_of(mA.change_ring(QQbar))
     in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
 
+    t.print_tdiff("5",show_time)
     #########################################################
     # 6. collect all variables and coefficients used
     c_vars=in_space_conds[1] # coefficients
     v_vars=in_space_conds[2] # variables (from zvec)
     allvars=in_space_conds[1]+in_space_conds[2]
 
+    t.print_tdiff("6",show_time)
     #########################################################
     # 7. compute the maxial satisfying index for each of the k constraints
     max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
@@ -716,17 +757,20 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
         print "case 0: terminating"
         return "terminating"
 
+    t.print_tdiff("7",show_time)
     #########################################################
     # 8. compute S_min
     S_min_conds=complex_space_conditions(s_abs_conds,w_abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
     S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
 
+    t.print_tdiff("8",show_time)
     #########################################################
     # 9. compute Q_min and R_min
     algebraic_base_extends = collect_QQ_extends(mD)
     Q_min=find_Q_min(S_min,algebraic_base_extends)
     R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
 
+    t.print_tdiff("9",show_time)
     #########################################################
     # 10. decide termination
     if S_min.dimension() == Q_min.dimension():
@@ -751,6 +795,7 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w):
         rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
         rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
         clean_up(allvars)
+        t.print_tdiff("10.3",show_time)
         termination_check(rA,rB_s,rB_w)
 #########################################################
 # examples

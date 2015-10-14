@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [-2,4],
+  [ 4,0]],
+"matrix_B_strict" : [
+  [4,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "terminating, non-linear, variable vector [x,y]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.6",
+"preconditions" : "termination: true",
+"original_program" : "while (4x + y > 0) {'x = -2x + 4y; 'y = 4x}"
+}

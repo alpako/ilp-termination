@@ -115,3 +115,37 @@ def linear_combination_of(coefficient_vec,matrix):
     for c,v in zip(coeffs,vecs):
         lc = lc + c * v
     return lc
+
+def solve_system_of_linear_equalities(mx,vec):
+    symbol_vec=mk_symbol_vector(mx.dimensions()[1], "v").transpose()
+    vars = symbol_vec.list()
+    # print "mx",mx
+    # print "symbol_vec",symbol_vec
+    lhs = mx * symbol_vec
+    rhs = vec
+    # print "lhs",lhs
+    # print "rhs",rhs
+    eqs = map(lambda e:e[0]-e[1]==0, zip(lhs.list(),rhs.list()))
+    # print eqs
+    sols = solve(eqs,vars,solution_dict=True)
+    if len(sols) == 0:
+        return None
+    else:
+        sol=sols[0]
+        fvars=set.union(*map(lambda s: set(s.variables()),sol.values())).difference(set(vars))
+        rdict= dict(zip(list(fvars),[1]*len(list(fvars))))
+        # print rdict
+        # print isol
+        isol=dict(map(lambda s:(s[0],s[1].substitute(rdict)),sol.items()))
+        val_vec=symbol_vec.substitute(isol)
+        # print val_vec
+        return val_vec.change_ring(vec.base_ring())
+
+def generalized_eigenvectors_for(mx,ev,evec):
+    mxI=mx - ev * identity_matrix(mx.dimensions()[0])
+    gen_evecs=[]
+    rem_vec=evec
+    while rem_vec != None:
+        gen_evecs.append(rem_vec)
+        rem_vec = solve_system_of_linear_equalities(mxI,rem_vec)
+    return gen_evecs

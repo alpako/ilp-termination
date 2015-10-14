@@ -32,7 +32,7 @@ def run_example(filepath):
     print "Matrix B weak:"
     print mB_w
     start_time = time.time()
-    result = T.termination_check(mA,mB_s,mB_w)
+    result = T.termination_check(mA,mB_s,mB_w,True)
     end_time = time.time()
     print "result:",result
     print ("time: %s seconds" % (end_time - start_time))

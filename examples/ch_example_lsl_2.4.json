@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [1, 1],
+  [0,-2]],
+"matrix_B_strict" : [
+  [-1,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "non-terminating (for x=-1,y=0), variable vector [x,y]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.4",
+"preconditions" : "",
+"original_program" : "while (x < y) {x' = x + y; y'=-2y}"
+}

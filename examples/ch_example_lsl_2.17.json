@@ -1,0 +1,16 @@
+{
+"matrix_A" : [
+  [0,-1,0],
+  [0, 1,1],
+  [0, 0,1]],
+"matrix_B_strict" : [
+  [-1,0,10],
+  [ 0,0, 1]],
+"matrix_B_weak" : [
+  [0,0,0]],
+"comment" : "non-terminating (for x=0, y=11), variable vector [x,y,1], generalized nonnegative eigenspace needed",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.17",
+"preconditions" : "",
+"original_program" : "while (x < 10) {x' = -y; y++}"
+}

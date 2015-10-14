@@ -1,0 +1,14 @@
+{
+"matrix_A" : [
+  [2,4],
+  [4,0]],
+"matrix_B_strict" : [
+  [4,-5]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "non-terminating (for x=-1,y=0), variable vector [x,y]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.11",
+"preconditions" : "",
+"original_program" : "while (4x - 5y > 0) {x' = 2x + 4y; y' = 4x}"
+}
