@@ -144,7 +144,7 @@ def solve_system_of_linear_equalities(mx,vec):
 def generalized_eigenvectors_for(mx,ev,evec):
     mxI=mx - ev * identity_matrix(mx.dimensions()[0])
     gen_evecs=[]
-    rem_vec=evec
+    rem_vec=matrix([evec]).transpose()
     while rem_vec != None:
         gen_evecs.append(rem_vec)
         rem_vec = solve_system_of_linear_equalities(mxI,rem_vec)

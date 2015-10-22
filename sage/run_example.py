@@ -26,7 +26,7 @@ def run_example(filepath):
     print "Matrix A:"
     print mA
     print "Matrix jnf(A):"
-    print mA.jordan_form(QQbar)
+    print mA.jordan_form(S.QQbar)
     print "Matrix B strict:"
     print mB_s
     print "Matrix B weak:"
