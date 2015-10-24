@@ -1,0 +1,16 @@
+{
+"matrix_A" : [
+  [1, 1,  0],
+  [0, 1, -1],
+  [0, 0,  1]],
+"matrix_B_strict" : [
+  [1,0,0],
+  [0,0,1]],
+"matrix_B_weak" : [
+  [0,0,0]],
+"comment" : "terminating, variable vector [x,y,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.1",
+"preconditions" : "",
+"original_program" : "while (x > 0) {x' = x + y, y--}"
+}

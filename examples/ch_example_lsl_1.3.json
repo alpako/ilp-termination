@@ -1,0 +1,13 @@
+{
+"matrix_A" : [
+  ["-1/2"]],
+"matrix_B_strict" : [
+  [1]],
+"matrix_B_weak" : [
+  [0]],
+"comment" : "terminating, variable vector [x]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 1.3",
+"preconditions" : "",
+"original_program" : "while (x > 1) {-2x' = x}"
+}

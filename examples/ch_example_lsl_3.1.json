@@ -1,0 +1,17 @@
+{
+"matrix_A" : [
+  [1,0,0,1],
+  [0,0,1,0],
+  [0,0,1,0],
+  [0,0,0,1]],
+"matrix_B_strict" : [
+  [-1,1,0,0],
+  [ 0,0,0,1]],
+"matrix_B_weak" : [
+  [0,0,0,0]],
+"comment" : "terminating, variable vector [x,y,z,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 3.1",
+"preconditions" : "termination: true",
+"original_program" : "while (x < y) {x++, y' = z}"
+}

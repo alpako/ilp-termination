@@ -1,0 +1,18 @@
+{
+"matrix_A" : [
+  [2,1,0,0,0],
+  [0,0,1,0,0],
+  [0,0,1,0,1],
+  [0,0,0,1,0],
+  [0,0,0,0,1]],
+"matrix_B_strict" : [
+  [0,0,0,0,1]],
+"matrix_B_weak" : [
+  [ 1,1,0,0,0],
+  [-1,0,0,1,0]],
+"comment" : "terminating, variable vector [x,y,z,n,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 4.1",
+"preconditions" : "termination: true",
+"original_program" : "while (x + y >= 0 & x <= n) {x'= 2x + y, y'= z, z++}"
+}

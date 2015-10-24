@@ -1,0 +1,15 @@
+{
+"matrix_A" : [
+  [-2, 10],
+  [ 0,  1]],
+"matrix_B_strict" : [
+  [1,0],
+  [0,1]],
+"matrix_B_weak" : [
+  [0,0]],
+"comment" : "terminating, variable vector [x,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 1.1",
+"preconditions" : "",
+"original_program" : "while (x > 0) {x' = -2x + 10}"
+}
