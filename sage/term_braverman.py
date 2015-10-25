@@ -455,6 +455,15 @@ def complex_space_conditions(s_abs_conds,w_abs_conds,sorted_index_list,var_vec,i
         #print solve(cn+c+sc,vars)
         #conds.append(cn+c+sc)
         conds.append(cn)
+    ## !! SAGEMATH BUG
+    ## 'solve([SR(0)==SR(0)],[x])'
+    ## returns '[False]' instead of '[x=r1]'.
+    ## We circumvent this by adding a dummy variable and a constraint
+    ## that this variable must by zero
+    dummy_var=var("dummy")
+    vars.append(dummy)
+    conds.append([dummy == 0])
+    ## end of fix
     return (solve(list(itertools.chain(*conds)),vars,explicit_solutions=True),vars)
 
 #########################################################
@@ -787,10 +796,10 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
     #########################################################
     # 7. compute the maxial satisfying index for each of the k constraints
     max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
-
     if max_indices == None:
         # when no index function can be found (= no nonterminating
         # susbspace is found = dimension of S_min is zero)
+        t.print_tdiff("7.0",show_time)
         print "case 0: terminating"
         return "terminating"
 
@@ -813,6 +822,7 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
     if S_min.dimension() == Q_min.dimension():
         print "case 1: non-terminating"
         clean_up(allvars)
+        t.print_tdiff("10.1",show_time)
         return "non-terminating"
     if Q_min.dimension() == 0:
         #########################################################
@@ -820,10 +830,12 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
         if terminates_on_zero(mB_s,mB_w):
             print "case 2: terminating"
             clean_up(allvars)
+            t.print_tdiff("10.2",show_time)
             return "terminating"
         else:
-            return "case 2: non-terminating"
+            print "case 2: non-terminating"
             clean_up(allvars)
+            t.print_tdiff("10.2",show_time)
             return "non-terminating"
     if 0 < Q_min.dimension() < S_min.dimension():
         #########################################################

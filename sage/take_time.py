@@ -1,5 +1,6 @@
 
 import time
+import sys
 
 class TakeTime:
 
@@ -12,6 +13,7 @@ class TakeTime:
             now = time.time()
             diff = (now - self.last)
             print (s+": %0.4f seconds" % diff)
+            sys.stdout.flush()
             self.last=now
 
     def time_passed(self):
