@@ -27,8 +27,16 @@ reload(SE)
 
 
 def formula_to_operands(formula):
+    smul=sage.symbolic.operators.mul_vararg
+    sadd=sage.symbolic.operators.add_vararg
     fe=formula.expand()
-    return (fe.operator(),map(lambda m:(m.operator(),m.operands()), fe.operands()))
+    result = None
+    if fe.operator() == smul: # only one summand
+        result = (sadd,[(fe.operator(),fe.operands())])
+    else:
+        result = (fe.operator(),map(lambda m:(m.operator(),m.operands()), fe.operands()))
+    #print "fe:",fe, result
+    return result
 
 def to_number_direction(num):
     return (num/abs(num))
@@ -122,6 +130,7 @@ def group_entry_summands_by_eigenvalue(entry):
     smul=sage.symbolic.operators.mul_vararg
     sadd=sage.symbolic.operators.add_vararg
     def grp_key(summand):
+        #print "summand:",summand
         return (abs(summand[1][0][0]),summand[1][0][1])
         # (eigenvalue,power) -> (abs(eigenvalue), power)
     def norm_summand(summand):
@@ -159,7 +168,10 @@ def abs_ev_index_set_from_abstract_lmatrix(lmatrix):
         evs = map(lambda v:v[1][0],vs)
         return set(evs)
     ev_sets = MX.map_lmatrix(set_from_entry,lmatrix)
-    return set.union(*map(lambda s:set.union(*s),ev_sets))
+    if ev_sets == []:
+        return set()
+    else:
+        return set.union(*map(lambda s:set.union(*s),ev_sets))
 
 def mk_abstract_cond_k(abstract_program_lmatrix,k):
     # structure of abstract_program_lmatrix
@@ -371,7 +383,9 @@ def mk_in_space_conditions(space,var_vector):
     # print basis_matrix
     #for i in range(coeff_count):
     #    assume(coeffs[0][i],'rational')
-
+    if coeff_count == 0:
+        # if the space is empty
+        return ([0 != 0],coeffs.list(),var_vector.list())
     lhs1 = MX.linear_combination_of(coeffs,basis_matrix).list()
     lhs2 = var_vector.list()
     # print "lhs2",lhs2
@@ -441,6 +455,15 @@ def complex_space_conditions(s_abs_conds,w_abs_conds,sorted_index_list,var_vec,i
         #print solve(cn+c+sc,vars)
         #conds.append(cn+c+sc)
         conds.append(cn)
+    ## !! SAGEMATH BUG
+    ## 'solve([SR(0)==SR(0)],[x])'
+    ## returns '[False]' instead of '[x=r1]'.
+    ## We circumvent this by adding a dummy variable and a constraint
+    ## that this variable must by zero
+    dummy_var=var("dummy")
+    vars.append(dummy)
+    conds.append([dummy == 0])
+    ## end of fix
     return (solve(list(itertools.chain(*conds)),vars,explicit_solutions=True),vars)
 
 #########################################################
@@ -564,10 +587,6 @@ def find_Q_min(S_min,space_exts):
     # print solutions2
     # forget()
     # return (solutions2,lvars)
-# if len(sys.argv) != 2:
-#     print "Usage: %s <n>"%sys.argv[0]
-#     print "Outputs the prime factorization of n."
-#     sys.exit(1)
 
 #########################################################
 # Section 4.2 Reducing A to a A' of size d x d
@@ -713,8 +732,12 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
                                     # to make the algorithm work. Hence it is called "a"
     Q=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"q")
 
-    sBPDQ=(sB*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
-    wBPDQ=(wB*P*D*Q).expand()
+    sBPDQ=matrix([])
+    if sB.dimensions()[0] > 0:
+        sBPDQ=(sB*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
+    wBPDQ=matrix([])
+    if wB.dimensions()[0] > 0:
+        wBPDQ=(wB*P*D*Q).expand()
     # a matrix entry now has the form (apdq + apdq + apdq + ...), where each
     # a,p,d,q corresponds to one entry of the original matrices.
     #
@@ -773,10 +796,10 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
     #########################################################
     # 7. compute the maxial satisfying index for each of the k constraints
     max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
-
     if max_indices == None:
         # when no index function can be found (= no nonterminating
         # susbspace is found = dimension of S_min is zero)
+        t.print_tdiff("7.0",show_time)
         print "case 0: terminating"
         return "terminating"
 
@@ -799,6 +822,7 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
     if S_min.dimension() == Q_min.dimension():
         print "case 1: non-terminating"
         clean_up(allvars)
+        t.print_tdiff("10.1",show_time)
         return "non-terminating"
     if Q_min.dimension() == 0:
         #########################################################
@@ -806,10 +830,12 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
         if terminates_on_zero(mB_s,mB_w):
             print "case 2: terminating"
             clean_up(allvars)
+            t.print_tdiff("10.2",show_time)
             return "terminating"
         else:
-            return "case 2: non-terminating"
+            print "case 2: non-terminating"
             clean_up(allvars)
+            t.print_tdiff("10.2",show_time)
             return "non-terminating"
     if 0 < Q_min.dimension() < S_min.dimension():
         #########################################################
@@ -820,102 +846,3 @@ def termination_check(matrix_A,matrix_B_s,matrix_B_w,show_time):
         clean_up(allvars)
         t.print_tdiff("10.3",show_time)
         termination_check(rA,rB_s,rB_w)
-#########################################################
-# examples
-
-
-
-
-# (row_dim,col_dim)=mA.dimensions()
-# vZ = MX.mk_symbol_vector(col_dim,"x").transpose()
-
-# (mD,mP) = mA.jordan_form(QQbar,transformation=true)
-# mPi = mP.inverse()
-# # evs=mD.eigenvalues()
-# # evs_grouped=group_eigenvalues_by_abs(evs)
-# # evs_indexset=eigenvalue_superset(evs_grouped)
-# # abstract_fs=to_abstract_power_factors(mD)
-#
-# # print "is transformation matrix mP correct? ", mD == mPi * mA * mP
-# # print "eigenvalues ", evs
-# # print "eigenvalues sorted and grouped by absolute value ", evs_grouped
-# # print "eigenvalue index set compact", evs_indexset
-# # print "abstract factors of jordan matrix", abstract_fs
-#
-# sB_dims=mB_s.dimensions()
-# wB_dims=mB_w.dimensions()
-# A_dims=mA.dimensions()
-# sB=MX.mk_symbol_matrix(sB_dims[0],sB_dims[1],"bs")
-# wB=MX.mk_symbol_matrix(wB_dims[0],wB_dims[1],"bw")
-# P=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"p")
-# D=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"a")  # entries of this matrix must be sorted first when expanding
-#                                 # to make the algorithm work. Hence it is called "a"
-# Q=MX.mk_symbol_matrix(A_dims[0],A_dims[1],"q")
-#
-# sBPDQ=(sB*P*D*Q).expand()           # .expand() is the same as .apply_map(expand)
-# wBPDQ=(wB*P*D*Q).expand()
-# # a matrix entry now has the form (apdq + apdq + apdq + ...), where each
-# # a,p,d,q corresponds to one entry of the original matrices.
-# #
-# # split into operators and operands
-# soBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(sBPDQ))
-# woBPDQ=map(lambda r: map (lambda c: formula_to_operands(c),r), MX.matrix_to_list(wBPDQ))
-# # Now we have a list representation of our matrix where each entry is split
-# # into a tuple (operator,list of arguments).
-# # Here we want to replace the symbolic values of matrix A by some abstract
-# # representation of the Jordan matrix D to the power of some natural number
-# soBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),soBPDQ)
-# woBPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(D),MX.abstract_jordan_matrix_power(mD),woBPDQ)
-# # combine parts by same absolute eigenvalues and direction for every entry.
-# # an entry.
-# snBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,soBPdQ)
-# wnBPdQ=MX.map_lmatrix(group_entry_summands_by_eigenvalue,woBPdQ)
-# # Entries now have the form (abs(a_0)(dir(a_0)pdq+dir(a_1)pdq+...)
-# # + abs(a_2)(dir(a_2)pdq+dir(a_3)pdq+...) + ...).
-# # Next the variables b p q are replaced by their values.
-# snbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(sB),MX.matrix_to_list(mB_s),snBPdQ)
-# snbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),snbPdQ)
-# snbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),snbpdQ)
-#
-# wnbPdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(wB),MX.matrix_to_list(mB_w),wnBPdQ)
-# wnbpdQ=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(P),MX.matrix_to_list(mP),wnbPdQ)
-# wnbpdq=MX.replace_symbols_in_lmatrix(MX.matrix_to_list(Q),MX.matrix_to_list(mPi),wnbpdQ)
-#
-# # At this point we have somehow the representation for Cond_k for all k.
-# # we transform it to a more concrete representation.
-#
-# # build eigenvalue index set Ind
-# ind=sorted(list(set.union(abs_ev_index_set_from_abstract_lmatrix(snbpdq),
-#     abs_ev_index_set_from_abstract_lmatrix(wnbpdq))))
-# s_abs_conds = mk_abstract_conds(snbpdq)
-# w_abs_conds = mk_abstract_conds(wnbpdq)
-# zvec = MX.mk_symbol_matrix(2,1,"z")
-# #cond_0=mk_abstract_cond_k_constraints_S_plus(abs_conds[0],ind,zvec)
-# index_z_k,index_cond_c_tuples = mk_index_z(s_abs_conds,w_abs_conds,ind,zvec)
-# pos_eigenspace = positive_eigenspace_of(mA)
-# in_space_conds = mk_in_space_conditions(pos_eigenspace,zvec)
-# c_vars=in_space_conds[1]
-# v_vars=in_space_conds[2]
-# allvars=in_space_conds[1]+in_space_conds[2]
-# max_indices = max_indices_cond(index_cond_c_tuples,zvec,in_space_conds)
-# S_min_conds=complex_space_conditions(s_abs_conds,w_abs_conds,ind,zvec,index_cond_c_tuples,max_indices,in_space_conds)
-# S_min = SE.solution_to_space(S_min_conds[0][0],c_vars,v_vars)
-# #   intersecting S_min with VectorSpace(QQ,n) does not work with sage math
-# # methods since the ambient space is not the same.
-# #   All space extensions are computed, because it does not suffice to only
-# # only use space extensions from S_min
-# algebraic_base_extends = collect_QQ_extends(mD)
-# Q_min=find_Q_min(S_min,algebraic_base_extends)
-# R_min=VectorSpace(SR,Q_min.degree()).subspace_with_basis(Q_min.basis())
-#
-
-#
-# rA,valphas,lin_alpha=find_reduction_of_matrix(mA,Q_min)
-# rB_s,rB_w=apply_reduction_on(mB_s, mB_w, valphas,lin_alpha)
-#
-#
-# print "done"
-#
-# # testing the index function
-# # a= cond[0][cond[0].keys()[2]][QQbar(1)]
-# # cond_0[0](matrix([[-SR(a[1])],[SR(a[0])]]))

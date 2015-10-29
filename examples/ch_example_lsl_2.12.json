@@ -1,0 +1,16 @@
+{
+"matrix_A" : [
+  [1,-1,0],
+  [1, 1,0],
+  [0, 0,1]],
+"matrix_B_strict" : [
+  [-1,0,5],
+  [ 0,0,1]],
+"matrix_B_weak" : [
+  [0,0,0]],
+"comment" : "non-terminating (for x=0,y=0), variable vector [x,y,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 2.12",
+"preconditions" : "",
+"original_program" : "while (x < 5) {x' = x - y, y' = x + y}"
+}

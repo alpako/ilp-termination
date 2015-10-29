@@ -1,0 +1,17 @@
+{
+"matrix_A" : [
+  [1, 0,1,0],
+  [0, 1,0,1],
+  [0,-2,0,0],
+  [0, 0,0,1]],
+"matrix_B_strict" : [
+  [-1,0,0,0],
+  [ 0,0,0,1]],
+"matrix_B_weak" : [
+  ],
+"comment" : "non-terminating, variable vector [x,y,z,1]",
+"published_in" : "Chen et al. 2012",
+"example_name" : "LSL 3.6",
+"preconditions" : "",
+"original_program" : "while (x < 0) {x' = x + z, y' = y + 1, z = -2y}"
+}
