@@ -1,0 +1,15 @@
+{
+"matrix_A" : [
+  [1,1,0],
+  [1,0,0],
+  [0,0,1]],
+"matrix_B_strict" : [
+  [-1,0,1],
+  [ 1,0,0]],
+"matrix_B_weak" : [],
+"comment" : "variable vector [x,y,n]",
+"published_in" : "",
+"example_name" : "Fibonacci < n",
+"preconditions" : "termination: true",
+"original_program" : "fib(x,y,n) -> fib(x+y,x,n-1) [n > 0]"
+}
