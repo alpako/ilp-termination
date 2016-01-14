@@ -2,6 +2,7 @@
 import sage.all as S
 import term_braverman as T
 import parse_example as E
+import complexity as C
 
 import sys
 import time
@@ -32,6 +33,9 @@ def run_example(filepath,more_info=False):
         print mB_s
         print "Matrix B weak:"
         print mB_w
+        print ("applicable to complexity theorem: " + str(C.are_absolute_eigenvalues_of_jordan_blocks_distinct(mA)))
+        print ("polynomial update:                " + str(C.has_polynomial_growth(mA)))
+        print ("max growth:                       " + str(C.pretty_growth(C.max_growth(mA))))
     sys.stdout.flush()
     start_time = time.time()
     result = T.termination_check(mA,mB_s,mB_w,more_info)
