@@ -6,11 +6,11 @@ import sage.all as S
 def are_absolute_eigenvalues_of_jordan_blocks_distinct(square_matrix):
     j = square_matrix.jordan_form(S.QQbar)
     number_of_blocks=len(j.subdivisions()[1]) + 1
-    evs=set()
+    evs=list()
     for i in range(number_of_blocks):
-        evs.add(j.subdivision(i,i)[0,0])
-    aevs=set(map(abs,list(evs)))
-    return len(evs) == len(aevs)
+        evs.append(j.subdivision(i,i)[0,0])
+    aevs=set(map(abs,evs))
+    return len(evs) == len(list(aevs))
 
 def has_polynomial_growth(square_matrix):
     j = square_matrix.jordan_form(S.QQbar)
